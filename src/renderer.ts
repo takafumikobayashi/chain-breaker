@@ -267,11 +267,6 @@ export class Renderer {
       context.beginPath();
       context.arc(blast.x, blast.y, Math.max(1, blast.radius), 0, Math.PI * 2);
       context.fill();
-      context.strokeStyle = hexToRgba("#fff2c4", 0.85 * fade);
-      context.lineWidth = 1.6;
-      context.beginPath();
-      context.arc(blast.x, blast.y, Math.max(1, blast.radius), 0, Math.PI * 2);
-      context.stroke();
     }
   }
 

@@ -25,6 +25,8 @@ const MAX_ITEMS = 10;
 const PLAY_LEFT = 10;
 const PLAY_RIGHT = WORLD.width - 10;
 const PLAY_TOP = 11;
+/** With one ball left the paddle moves this much faster than strictly needed to reach it in time. */
+const LAST_BALL_CHASE_MARGIN = 1.4;
 /** Longest distance (px) a ball may travel in one collision sub-step; keep below WORLD.cell / 2. */
 const MAX_SUBSTEP_DISTANCE = 2.4;
 /** Each extra ball in play adds this much to the speed multiplier, up to the cap. */
@@ -189,6 +191,8 @@ export class Simulation {
   private lastBreakAt = -1;
   private nextEndgameBombAt = 0;
   private nextSupplyAt = SUPPLY_FIRST_AT;
+  /** How often the last-ball safety net had to snap the paddle (diagnostics; expected to stay 0). */
+  private lastBallSnaps = 0;
   private combo = 0;
   private bestCombo = 0;
   private splitCount = 0;
@@ -226,6 +230,7 @@ export class Simulation {
     this.lastBreakAt = -1;
     this.nextEndgameBombAt = 0;
     this.nextSupplyAt = SUPPLY_FIRST_AT;
+    this.lastBallSnaps = 0;
     this.combo = 0;
     this.bestCombo = 0;
     this.splitCount = 0;
@@ -330,8 +335,7 @@ export class Simulation {
       while (ball.trail.length > trailLength) ball.trail.shift();
     }
 
-    // Balls only multiply through capsules. If every ball is lost, one is relaunched so the run never stalls.
-    if (this.balls.length === 0) this.launchFromPaddle(1, 0);
+    // Balls only multiply through capsules, and the paddle always returns the last ball, so the count never reaches zero.
 
     this.updateItems(dt);
     this.updateExplosions(dt);
@@ -354,28 +358,39 @@ export class Simulation {
   /* ---------- Paddle ---------- */
 
   private movePaddle(dt: number, speedFactor: number): void {
-    const target = this.paddleTarget();
-    const maxStep = 470 * dt * Math.max(1, speedFactor * 0.85);
+    const { x: target, arrival } = this.paddleTarget(speedFactor);
+    let maxStep = 470 * dt * Math.max(1, speedFactor * 0.85);
+    // With a single ball left, the paddle speeds up as much as it needs to reach the landing point in time.
+    if (this.balls.length === 1 && arrival !== null) {
+      const needed = (Math.abs(target - this.paddle.x) / Math.max(arrival, dt)) * dt * LAST_BALL_CHASE_MARGIN;
+      maxStep = Math.max(maxStep, needed);
+    }
     this.paddle.x += Math.max(-maxStep, Math.min(maxStep, target - this.paddle.x));
+    this.clampPaddle();
+  }
+
+  private clampPaddle(): void {
     const margin = this.paddle.width / 2 + 12;
     this.paddle.x = Math.max(margin, Math.min(WORLD.width - margin, this.paddle.x));
   }
 
   /**
    * Picks whichever arrives first: a descending ball or a falling capsule. Balls are met at the
-   * paddle offset that sends them back toward the channel mouth.
+   * paddle offset that sends them back toward the channel mouth. With one ball left, capsules are
+   * only chased when there is plenty of time to get back to the ball.
+   * `arrival` is the real time (s) until the chosen ball reaches the paddle, or null.
    */
-  private paddleTarget(): number {
+  private paddleTarget(speedFactor: number): { x: number; arrival: number | null } {
     let ballTime = Infinity;
     let ballX = 0;
     const span = WORLD.width - 20;
     for (const ball of this.balls) {
       if (ball.vy <= 0) continue;
-      const time = (this.paddle.y - ball.y) / ball.vy;
+      const time = (this.paddle.y - ball.y) / (ball.vy * speedFactor);
       if (time < 0 || time >= ballTime) continue;
       const left = PLAY_LEFT + ball.radius;
       const width = span - ball.radius * 2;
-      const unfolded = (((ball.x + ball.vx * time - left) % (width * 2)) + width * 2) % (width * 2);
+      const unfolded = (((ball.x + ball.vx * speedFactor * time - left) % (width * 2)) + width * 2) % (width * 2);
       ballTime = time;
       ballX = left + (unfolded <= width ? unfolded : width * 2 - unfolded);
     }
@@ -390,9 +405,10 @@ export class Simulation {
       }
     }
 
-    if (itemTime !== Infinity && itemTime - 0.25 <= ballTime) return itemX;
-    if (ballTime !== Infinity) return this.aimedPaddleX(ballX);
-    return WORLD.width / 2 + Math.sin(this.elapsed * 0.68) * 64;
+    const itemLead = this.balls.length === 1 ? -0.8 : 0.25;
+    if (itemTime !== Infinity && itemTime - itemLead <= ballTime) return { x: itemX, arrival: null };
+    if (ballTime !== Infinity) return { x: this.aimedPaddleX(ballX), arrival: ballTime };
+    return { x: WORLD.width / 2 + Math.sin(this.elapsed * 0.68) * 64, arrival: null };
   }
 
   /** Paddle centre that makes a ball landing at `landingX` bounce toward the channel mouth. */
@@ -447,12 +463,15 @@ export class Simulation {
       ball.vy = Math.abs(ball.vy);
     }
 
-    if (
-      ball.vy > 0 &&
-      previousY + ball.radius <= this.paddle.y &&
-      ball.y + ball.radius >= this.paddle.y &&
-      Math.abs(ball.x - this.paddle.x) <= this.paddle.width / 2 + ball.radius
-    ) {
+    const crossesPaddle = ball.vy > 0 && previousY + ball.radius <= this.paddle.y && ball.y + ball.radius >= this.paddle.y;
+    // Safety net: the last ball is always returned. If the chase still came up short, the paddle snaps under it.
+    if (crossesPaddle && this.balls.length === 1 && Math.abs(ball.x - this.paddle.x) > this.paddle.width / 2 + ball.radius) {
+      this.paddle.x = ball.x;
+      this.clampPaddle();
+      this.lastBallSnaps += 1;
+    }
+
+    if (crossesPaddle && Math.abs(ball.x - this.paddle.x) <= this.paddle.width / 2 + ball.radius) {
       ball.y = this.paddle.y - ball.radius;
       const hitOffset = (ball.x - this.paddle.x) / (this.paddle.width / 2);
       const angle = hitOffset * 0.98;
