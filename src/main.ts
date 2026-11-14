@@ -1,4 +1,5 @@
 import { DEFAULT_VOLUME, SoundEngine } from "./audio";
+import { initAnalytics, trackEvent } from "./analytics";
 import { resolveOwnerMode } from "./owner";
 import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPalette } from "./palette";
 import { CanvasRecorder, downloadBlob } from "./recorder";
@@ -60,7 +61,10 @@ let finalizing = false;
 let recordingClosed = false;
 /** Bumped on reset so a stop that finishes afterwards does not keep footage from the discarded run. */
 let recordingGeneration = 0;
-let lastVideo: { blob: Blob; extension: string } | null = null;
+/** Pattern on screen when the current recording started; the finished video keeps it. */
+let recordingPatternId = simulation.getPattern().id;
+/** Finished video plus the pattern it actually shows (the field may have been switched since). */
+let lastVideo: { blob: Blob; extension: string; patternId: number } | null = null;
 renderer.showStatsLine = recordingSupported;
 let lastFrame = 0;
 let accumulator = 0;
@@ -151,7 +155,7 @@ async function finalizeRecording(): Promise<void> {
   refreshRecordUI();
   const blob = await recorder.stop();
   finalizing = false;
-  if (generation === recordingGeneration && blob.size > 0) lastVideo = { blob, extension };
+  if (generation === recordingGeneration && blob.size > 0) lastVideo = { blob, extension, patternId: recordingPatternId };
   refreshRecordUI();
 }
 
@@ -209,12 +213,14 @@ function newPattern(): void {
   let next = current;
   while (next === current) next = 1 + Math.floor(Math.random() * MAX_PATTERN);
   usePattern(next);
+  trackEvent("new_pattern", { pattern_id: next });
 }
 
 async function downloadVideo(): Promise<void> {
   if (recorder.state !== "idle") await finalizeRecording();
   if (!lastVideo) return;
   downloadBlob(lastVideo.blob, `chain-breaker-${timestampForFilename()}.${lastVideo.extension}`);
+  trackEvent("video_download", { pattern_id: lastVideo.patternId, file_type: lastVideo.extension });
 }
 
 /** Starts, pauses and resumes recording with playback, and closes it shortly after the field is cleared. */
@@ -224,6 +230,7 @@ function syncRecorder(): void {
   if (status === "running") {
     if (recorder.state === "idle" && !recordingClosed) {
       lastVideo = null;
+      recordingPatternId = simulation.getPattern().id;
       recorder.start(sound.recordingStream());
     } else {
       recorder.resume();
@@ -234,6 +241,20 @@ function syncRecorder(): void {
     finishedAt ??= performance.now();
     if (performance.now() - finishedAt >= RECORDING_TAIL_SECONDS * 1_000) void finalizeRecording();
   }
+}
+
+let lastTrackedStatus = simulation.getView().status;
+
+/** Reports a run starting from the beginning and a run clearing the field. */
+function trackRunMilestones(): void {
+  const view = simulation.getView();
+  if (view.status === lastTrackedStatus) return;
+  const pattern_id = simulation.getPattern().id;
+  // "Run it again" resets and starts in the same tick, so a restart shows up as finished → running.
+  const fromTop = lastTrackedStatus === "ready" || lastTrackedStatus === "finished";
+  if (fromTop && view.status === "running") trackEvent("run_start", { pattern_id });
+  if (view.status === "finished") trackEvent("run_clear", { pattern_id, seconds: Math.round(view.elapsed) });
+  lastTrackedStatus = view.status;
 }
 
 function animate(timestamp: number): void {
@@ -256,6 +277,7 @@ function animate(timestamp: number): void {
   }
 
   sound.play(simulation.takeSoundCues(), simulation.getView().status === "running", elapsed);
+  trackRunMilestones();
   renderer.draw(simulation);
   syncRecorder();
   if (uiRefreshFrame++ % 6 === 0) refreshUI();
@@ -281,7 +303,11 @@ renderer.creditLine = CREDIT_LINE;
 void resolveOwnerMode().then((isOwner) => {
   ownerMode = isOwner;
   renderer.creditLine = isOwner ? null : CREDIT_LINE;
+  // The owner's own visits are not measured: analytics is never loaded in owner mode.
+  if (!isOwner) initAnalytics();
 });
+
+document.querySelector(".follow-button")?.addEventListener("click", () => trackEvent("follow_click", { handle: X_HANDLE }));
 
 downloadButton.addEventListener("click", () => {
   if (ownerMode || typeof downloadDialog.showModal !== "function") {

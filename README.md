@@ -16,6 +16,8 @@ Open the local address printed by Vite. To create a production build:
 
 Published at https://chain-breaker.tariki-code.tokyo/ on Cloudflare Pages (build command `npm run build`, output `dist`). See [docs/deploy.md](docs/deploy.md) for the full steps, including the custom domain (DNS is on Netlify). `npm run build` also checks that the Open Graph / Twitter card URLs in `index.html` are absolute.
 
+Google Analytics 4 is set in `src/analytics.ts` (`GA_MEASUREMENT_ID`; empty disables it). It loads only on `chain-breaker.tariki-code.tokyo` (not on localhost or Cloudflare preview URLs) and never in owner mode. Besides page views it sends `run_start`, `run_clear`, `video_download`, `follow_click` and `new_pattern` events (with `pattern_id`). The CSP in `public/_headers` allows only the Google endpoints GA4 needs.
+
 ## Controls
 
 - **Start / Pause** — release the first ball or pause the simulation.
