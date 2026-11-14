@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090b10" />
+    <meta name="description" content="An automatic brick-breaking simulation. Watch the chain reaction unfold." />
+    <title>CHAIN BREAKER — Automatic Destruction Simulator</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Chain Breaker home">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="brand-copy">
+            <span class="brand-name">CHAIN BREAKER</span>
+            <span class="brand-caption">AUTOMATIC DESTRUCTION SIMULATOR</span>
+          </span>
+        </a>
+        <div class="session-status" aria-live="polite">
+          <span id="status-dot" class="status-dot"></span>
+          <span id="status-label">READY TO RUN</span>
+        </div>
+      </header>
+
+      <main>
+        <div class="page-intro">
+          <div>
+            <p class="eyebrow">A STUDY IN CASCADING COLLISIONS</p>
+            <h1>One bounce becomes <span>a thousand.</span></h1>
+            <p class="intro-copy">Set the chain in motion and watch order turn into chaos.</p>
+          </div>
+          <div class="seed-note"><span class="seed-dot"></span> FIXED SEED · REPEATABLE RUN</div>
+        </div>
+
+        <div class="workspace">
+          <section class="simulation-card" aria-labelledby="field-title">
+            <div class="card-heading">
+              <div>
+                <p class="eyebrow">LIVE SIMULATION</p>
+                <h2 id="field-title">Destruction field</h2>
+              </div>
+              <span class="field-size"><span class="field-size-dot"></span> 80 × 80 GRID</span>
+            </div>
+
+            <div class="stage-wrap">
+              <canvas
+                id="simulation"
+                width="960"
+                height="1440"
+                role="img"
+                aria-label="Automatic brick-breaking simulation with two arrays of coloured blocks, bouncing balls, and an AI paddle"
+              ></canvas>
+              <div id="field-corner" class="stage-corner stage-corner-top">PATTERN #0000</div>
+              <div class="stage-corner stage-corner-bottom">CHAIN REACTION SYSTEM</div>
+            </div>
+
+            <div class="field-legend" aria-label="Block color legend">
+              <span><i class="legend-swatch red"></i> ARRAY A</span>
+              <span><i class="legend-swatch blue"></i> ARRAY B</span>
+              <span><i class="legend-swatch concrete"></i> CONCRETE</span>
+              <span><i class="legend-swatch capsule"></i> CAPSULE</span>
+              <span><i class="legend-swatch bomb"></i> BOMB</span>
+              <span class="legend-right"><i class="legend-swatch glow"></i> LIVE PARTICLES</span>
+            </div>
+          </section>
+
+          <aside class="control-column" aria-label="Simulation controls and statistics">
+            <section class="stats-grid" aria-label="Live statistics">
+              <div class="stat-card">
+                <span class="stat-label">ELAPSED</span>
+                <strong id="time-value" class="stat-value">00:00</strong>
+                <span class="stat-unit">SIMULATION TIME</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">BALLS</span>
+                <strong id="balls-value" class="stat-value">01</strong>
+                <span class="stat-unit">IN PLAY</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">DESTROYED</span>
+                <strong id="broken-value" class="stat-value">0</strong>
+                <span id="broken-unit" class="stat-unit">OF 6,400 BLOCKS</span>
+              </div>
+              <div class="stat-card">
+                <span class="stat-label">CLEARED</span>
+                <strong id="clear-value" class="stat-value">0.0%</strong>
+                <span class="stat-unit">FIELD PROGRESS</span>
+              </div>
+            </section>
+
+            <section class="control-card">
+              <div class="section-title">
+                <div><p class="eyebrow">TAKE A SEAT</p><h2>Playback</h2></div>
+                <span class="keyboard-hint"><kbd>SPACE</kbd> PLAY / PAUSE</span>
+              </div>
+              <div class="primary-controls">
+                <button id="play-button" class="play-button" type="button">
+                  <span id="play-icon" class="play-icon" aria-hidden="true">▶</span>
+                  <span id="play-label">Start simulation</span>
+                </button>
+                <button id="reset-button" class="reset-button" type="button" aria-label="Reset simulation" title="Reset simulation">
+                  <span aria-hidden="true">↺</span>
+                </button>
+                <button id="download-button" class="reset-button download-button" type="button" aria-label="Download video" title="Download video" disabled>
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" />
+                  </svg>
+                </button>
+              </div>
+              <p id="record-note" class="record-note">Each run is recorded automatically. Use ↓ to save it as a video.</p>
+              <div class="pattern-row">
+                <div class="pattern-info">
+                  <span class="pattern-label">PATTERN <kbd>N</kbd></span>
+                  <strong id="pattern-name">#0000 · Classic</strong>
+                </div>
+                <button id="classic-button" class="pattern-classic" type="button" title="Back to the original layout">Classic</button>
+                <button id="pattern-button" class="pattern-new" type="button" title="Generate a new layout (N)">⚄ New pattern</button>
+              </div>
+              <div class="speed-heading"><span>SIMULATION SPEED</span><span id="speed-readout">1×</span></div>
+              <div class="speed-options" role="group" aria-label="Simulation speed">
+                <button type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+                <button type="button" data-speed="1" aria-pressed="true">1×</button>
+                <button type="button" data-speed="2" aria-pressed="false">2×</button>
+                <button type="button" data-speed="4" aria-pressed="false">4×</button>
+              </div>
+            </section>
+
+            <section class="palette-card" aria-labelledby="palette-title">
+              <div class="section-title">
+                <div><p class="eyebrow">BLOCK COLORS</p><h2 id="palette-title">Palette</h2></div>
+                <span id="palette-name" class="palette-name">Classic</span>
+              </div>
+              <div id="palette-presets" class="palette-presets" role="group" aria-label="Palette presets"></div>
+              <div class="palette-custom">
+                <label class="color-field">
+                  <input id="color-a" type="color" value="#ef4859" />
+                  <span>ARRAY A</span>
+                </label>
+                <label class="color-field">
+                  <input id="color-b" type="color" value="#4c79f4" />
+                  <span>ARRAY B</span>
+                </label>
+                <button id="palette-swap" class="palette-swap" type="button" aria-label="Swap the two colors" title="Swap colors">⇄</button>
+              </div>
+            </section>
+
+            <section class="phase-card">
+              <div class="section-title phase-heading">
+                <div><p class="eyebrow">DESTRUCTION CURVE</p><h2 id="phase-title">Quiet beginning</h2></div>
+                <span id="phase-number" class="phase-number">01</span>
+              </div>
+              <div class="phase-track" aria-label="Simulation phase">
+                <span class="phase-segment active current"></span><span class="phase-segment"></span>
+                <span class="phase-segment"></span><span class="phase-segment"></span>
+              </div>
+              <p id="phase-description" class="phase-description">A single ball tests the edge of the packed field.</p>
+              <div class="phase-meta"><span>CHAIN COMBO</span><strong id="combo-value">—</strong></div>
+            </section>
+
+            <section class="mechanics-card">
+              <p class="eyebrow">AUTONOMOUS SYSTEMS</p>
+              <div class="mechanic-row"><span class="mechanic-icon paddle-icon" aria-hidden="true"></span><span>Predictive paddle</span><b>ON</b></div>
+              <div class="mechanic-row"><span class="mechanic-icon split-icon" aria-hidden="true">◉</span><span>Capsules +3 / ×3 / BOMB</span><b>ON</b></div>
+              <div class="mechanic-row"><span class="mechanic-icon split-icon" aria-hidden="true">✹</span><span>Chain bombs</span><b>ON</b></div>
+            </section>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <span>CHAIN BREAKER <span class="footer-divider">/</span> PROTOTYPE 0.1</span>
+        <span>BUILT FOR THE MOMENT IT ALL FALLS</span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
