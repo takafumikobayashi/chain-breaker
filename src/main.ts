@@ -1,3 +1,4 @@
+import { DEFAULT_VOLUME, SoundEngine } from "./audio";
 import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPalette } from "./palette";
 import { CanvasRecorder, downloadBlob } from "./recorder";
 import { Renderer } from "./renderer";
@@ -33,6 +34,9 @@ const patternName = byId<HTMLElement>("pattern-name");
 const patternButton = byId<HTMLButtonElement>("pattern-button");
 const classicButton = byId<HTMLButtonElement>("classic-button");
 const fieldCorner = byId<HTMLElement>("field-corner");
+const soundToggle = byId<HTMLButtonElement>("sound-toggle");
+const soundVolume = byId<HTMLInputElement>("sound-volume");
+const soundReadout = byId<HTMLElement>("sound-readout");
 const paletteName = byId<HTMLElement>("palette-name");
 const palettePresets = byId<HTMLElement>("palette-presets");
 const colorAInput = byId<HTMLInputElement>("color-a");
@@ -43,6 +47,7 @@ const phaseSegments = [...document.querySelectorAll<HTMLElement>(".phase-segment
 const simulation = new Simulation();
 const renderer = new Renderer(canvas);
 const recorder = new CanvasRecorder(canvas);
+const sound = new SoundEngine();
 const recordingSupported = CanvasRecorder.isSupported();
 /** Seconds to keep recording after the field is cleared, so the video ends on the "FIELD CLEARED" card. */
 const RECORDING_TAIL_SECONDS = 2;
@@ -217,7 +222,7 @@ function syncRecorder(): void {
   if (status === "running") {
     if (recorder.state === "idle" && !recordingClosed) {
       lastVideo = null;
-      recorder.start();
+      recorder.start(sound.recordingStream());
     } else {
       recorder.resume();
     }
@@ -248,6 +253,7 @@ function animate(timestamp: number): void {
     accumulator = 0;
   }
 
+  sound.play(simulation.takeSoundCues(), simulation.getView().status === "running", elapsed);
   renderer.draw(simulation);
   syncRecorder();
   if (uiRefreshFrame++ % 6 === 0) refreshUI();
@@ -288,6 +294,8 @@ window.addEventListener("keydown", (event) => {
     if (simulation.getView().status === "finished") resetSimulation();
     simulation.togglePlayback();
     refreshUI();
+  } else if (event.key.toLowerCase() === "m") {
+    toggleMute();
   } else if (event.key.toLowerCase() === "n") {
     newPattern();
   } else if (event.key.toLowerCase() === "r") {
@@ -343,6 +351,58 @@ applyPalette(palette, false);
 
 simulation.setPattern(loadPattern());
 refreshPatternUI();
+
+/* ---------- Sound ---------- */
+
+const SOUND_STORAGE_KEY = "chain-breaker:sound";
+
+function loadSoundSettings(): { volume: number; muted: boolean } {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SOUND_STORAGE_KEY) ?? "null") as { volume?: unknown; muted?: unknown } | null;
+    if (stored && typeof stored.volume === "number" && typeof stored.muted === "boolean") {
+      return { volume: Math.max(0, Math.min(1, stored.volume)), muted: stored.muted };
+    }
+  } catch {
+    // Storage blocked or corrupt: use defaults.
+  }
+  return { volume: DEFAULT_VOLUME, muted: false };
+}
+
+let soundSettings = loadSoundSettings();
+
+function applySoundSettings(persist: boolean): void {
+  sound.setVolume(soundSettings.volume);
+  sound.setMuted(soundSettings.muted);
+  const percent = Math.round(soundSettings.volume * 100);
+  soundVolume.value = String(percent);
+  soundReadout.textContent = soundSettings.muted ? "MUTED" : percent + "%";
+  soundToggle.setAttribute("aria-pressed", soundSettings.muted ? "true" : "false");
+  soundToggle.setAttribute("aria-label", soundSettings.muted ? "Unmute sound" : "Mute sound");
+  if (persist) {
+    try {
+      localStorage.setItem(SOUND_STORAGE_KEY, JSON.stringify(soundSettings));
+    } catch {
+      // Not persisting is fine.
+    }
+  }
+}
+
+function toggleMute(): void {
+  soundSettings = { ...soundSettings, muted: !soundSettings.muted };
+  applySoundSettings(true);
+}
+
+// Browsers only allow audio after a user gesture; the first click or key press switches it on.
+const unlockAudio = () => sound.unlock();
+window.addEventListener("pointerdown", unlockAudio, { capture: true });
+window.addEventListener("keydown", unlockAudio, { capture: true });
+
+soundToggle.addEventListener("click", toggleMute);
+soundVolume.addEventListener("input", () => {
+  soundSettings = { volume: Number(soundVolume.value) / 100, muted: false };
+  applySoundSettings(true);
+});
+applySoundSettings(false);
 
 window.addEventListener("pagehide", () => renderer.destroy(), { once: true });
 

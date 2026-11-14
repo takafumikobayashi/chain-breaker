@@ -148,6 +148,22 @@ export type Beam = { x1: number; y1: number; x2: number; y2: number; life: numbe
 
 export type GameStatus = "ready" | "running" | "paused" | "finished";
 
+/** What happened since the last `takeSoundCues()` call, for the sound engine. */
+export type SoundCues = {
+  breaks: number;
+  /** Breaks of array-A (RED) blocks; the rest are array B or special blocks. */
+  breaksA: number;
+  concrete: number;
+  paddle: number;
+  capsules: ItemKind[];
+  /** Max radius (px) of each blast started. */
+  blasts: number[];
+  cleared: boolean;
+};
+
+const MAX_CUE_EVENTS = 16;
+const emptyCues = (): SoundCues => ({ breaks: 0, breaksA: 0, concrete: 0, paddle: 0, capsules: [], blasts: [], cleared: false });
+
 export type SimulationView = {
   status: GameStatus;
   bricks: Uint8Array;
@@ -193,6 +209,7 @@ export class Simulation {
   private nextSupplyAt = SUPPLY_FIRST_AT;
   /** How often the last-ball safety net had to snap the paddle (diagnostics; expected to stay 0). */
   private lastBallSnaps = 0;
+  private cues: SoundCues = emptyCues();
   private combo = 0;
   private bestCombo = 0;
   private splitCount = 0;
@@ -231,6 +248,7 @@ export class Simulation {
     this.nextEndgameBombAt = 0;
     this.nextSupplyAt = SUPPLY_FIRST_AT;
     this.lastBallSnaps = 0;
+    this.cues = emptyCues();
     this.combo = 0;
     this.bestCombo = 0;
     this.splitCount = 0;
@@ -299,6 +317,13 @@ export class Simulation {
     };
   }
 
+  /** Returns the sound cues gathered since the previous call and starts a fresh batch. */
+  takeSoundCues(): SoundCues {
+    const cues = this.cues;
+    this.cues = emptyCues();
+    return cues;
+  }
+
   takeBrokenCells(): number[] {
     const cells = this.brokenCells;
     this.brokenCells = [];
@@ -352,7 +377,10 @@ export class Simulation {
       this.nextEndgameBombAt = this.elapsed + ENDGAME_BOMB_INTERVAL;
     }
 
-    if (this.destroyed >= this.breakableTotal) this.status = "finished";
+    if (this.destroyed >= this.breakableTotal) {
+      this.status = "finished";
+      this.cues.cleared = true;
+    }
   }
 
   /* ---------- Paddle ---------- */
@@ -472,6 +500,7 @@ export class Simulation {
     }
 
     if (crossesPaddle && Math.abs(ball.x - this.paddle.x) <= this.paddle.width / 2 + ball.radius) {
+      this.cues.paddle += 1;
       ball.y = this.paddle.y - ball.radius;
       const hitOffset = (ball.x - this.paddle.x) / (this.paddle.width / 2);
       const angle = hitOffset * 0.98;
@@ -512,7 +541,10 @@ export class Simulation {
         }
       }
     }
-    if (concreteHit) this.jitterBounce(ball);
+    if (concreteHit) {
+      this.jitterBounce(ball);
+      this.cues.concrete += 1;
+    }
   }
 
   /**
@@ -577,6 +609,8 @@ export class Simulation {
 
     this.bricks[index] = EMPTY;
     this.brokenCells.push(index);
+    this.cues.breaks += 1;
+    if (kind === RED) this.cues.breaksA += 1;
     this.destroyed += 1;
     this.combo = this.elapsed - this.lastBreakAt <= 0.56 ? this.combo + 1 : 1;
     this.bestCombo = Math.max(this.bestCombo, this.combo);
@@ -645,6 +679,7 @@ export class Simulation {
   }
 
   private activateItem(item: Item): void {
+    if (this.cues.capsules.length < MAX_CUE_EVENTS) this.cues.capsules.push(item.kind);
     const x = this.paddle.x;
     const y = this.paddle.y - 14;
     if (item.kind === "plus") {
@@ -707,6 +742,7 @@ export class Simulation {
   /* ---------- Explosions ---------- */
 
   private detonate(x: number, y: number, maxRadius: number, color: string): void {
+    if (this.cues.blasts.length < MAX_CUE_EVENTS) this.cues.blasts.push(maxRadius);
     this.explosions.push({ x, y, radius: 0, maxRadius, color });
   }
 

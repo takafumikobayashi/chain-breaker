@@ -1,3 +1,10 @@
+/** Container/codec candidates with an audio codec, used when a sound track is recorded too. */
+const MIME_CANDIDATES_WITH_AUDIO = [
+  "video/mp4;codecs=avc1.640028,mp4a.40.2",
+  "video/mp4;codecs=avc1,mp4a.40.2",
+  "video/webm;codecs=vp9,opus",
+  "video/webm;codecs=vp8,opus",
+];
 /** Container/codec candidates in order of preference. MP4 plays almost everywhere, WebM is the fallback. */
 const MIME_CANDIDATES = [
   "video/mp4;codecs=avc1.640028",
@@ -44,13 +51,15 @@ export class CanvasRecorder {
     return this.mimeType.startsWith("video/mp4") ? "mp4" : "webm";
   }
 
-  start(): void {
+  /** Starts recording the canvas, mixing in `audio` (e.g. the game's sound) when given. */
+  start(audio?: MediaStream | null): void {
     if (this.state !== "idle") return;
-    const mimeType = pickMimeType();
+    const audioTracks = audio?.getAudioTracks() ?? [];
+    const mimeType = (audioTracks.length > 0 ? pickMimeType(MIME_CANDIDATES_WITH_AUDIO) : null) ?? pickMimeType();
     if (!mimeType) throw new Error("Video recording is not supported in this browser.");
     this.mimeType = mimeType;
     this.chunks = [];
-    const stream = this.canvas.captureStream(FRAME_RATE);
+    const stream = new MediaStream([...this.canvas.captureStream(FRAME_RATE).getVideoTracks(), ...audioTracks]);
     this.recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITS_PER_SECOND });
     this.recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size > 0) this.chunks.push(event.data);
@@ -80,7 +89,8 @@ export class CanvasRecorder {
       recorder.addEventListener(
         "stop",
         () => {
-          recorder.stream.getTracks().forEach((track) => track.stop());
+          // Only the canvas track belongs to this recording; the audio track is shared and keeps running.
+          recorder.stream.getVideoTracks().forEach((track) => track.stop());
           resolve(new Blob(this.chunks, { type: this.mimeType.split(";")[0] }));
           this.chunks = [];
           this.recorder = null;
@@ -92,9 +102,9 @@ export class CanvasRecorder {
   }
 }
 
-function pickMimeType(): string | null {
+function pickMimeType(candidates: string[] = MIME_CANDIDATES): string | null {
   if (typeof MediaRecorder === "undefined") return null;
-  return MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
 }
 
 /** Saves a blob through a temporary download link. */

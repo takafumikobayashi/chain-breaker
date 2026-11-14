@@ -12,11 +12,20 @@ Open the local address printed by Vite. To create a production build:
     npm run build
     npm run preview
 
+### Social preview (OGP)
+
+`public/og-image.jpg` (1200 × 630) is used for Open Graph and Twitter cards. Most social networks need absolute URLs, so set the deployed origin before building:
+
+    VITE_SITE_URL=https://your-domain.example npm run build
+
+or put `VITE_SITE_URL=...` in `.env.production`. Left empty, the card URLs stay relative.
+
 ## Controls
 
 - **Start / Pause** — release the first ball or pause the simulation.
 - **Reset** — return to the same initial layout and random seed.
 - **New pattern / N** — generate a new layout. Each pattern has a number (#0001–#9999); the same number always produces the same field and the same run, so a favourite can be replayed or recorded again. **Classic** returns to the original layout (#0000). The current pattern is remembered in this browser.
+- **Sound / M** — soft synthesised sound (no audio files): pentatonic mallet notes for breaks that walk up and down the scale, a warm pad that swells as destruction gets dense, gentle cues for the paddle, capsules and blasts, and a chime when the field is cleared. Mute with the speaker button or **M**; volume is remembered. Sound starts after the first click or key press (a browser rule) and is included in recorded videos.
 - **Palette** — recolour the two block arrays: pick a preset, choose each colour freely, or swap them with ⇄. The choice is remembered in this browser and also applies to sparks, the legend and recorded videos.
 - **↓ (Download)** — save the run as a video. Every run is recorded automatically from Start (paused with the simulation) and the recording closes 2 seconds after the field is cleared. Clicking ↓ mid-run saves the footage so far. The file is MP4 where the browser supports it, otherwise WebM. Recording captures the field canvas, with a time / balls / cleared line drawn along its bottom edge. Starting a new run replaces the previous video, so save it first.
 - **0.5× / 1× / 2× / 4×** — change simulation speed.
@@ -56,6 +65,7 @@ TypeScript、Vite、Canvas 2Dで作った自動進行型のブロック破壊シ
 - **Start / Pause**：シミュレーションの開始・一時停止
 - **Reset**：初期状態へ戻す
 - **New pattern / N**：新しいブロック配置を自動生成。パターンには番号（#0001〜#9999）が付き、同じ番号なら毎回同じ配置・同じ展開になります。**Classic**で元の配置（#0000）に戻ります
+- **Sound / M**：音声ファイルを使わず合成したやわらかな効果音。ブロックの破壊はペンタトニック音階のマリンバ風の音、破壊が激しくなると温かい和音が広がります。スピーカーボタンか **M** でミュート、音量は保存されます。録画にも音が入ります
 - **Palette**：2つのブロック群の色を変更。プリセットから選ぶか、それぞれ自由に色を選べます（⇄で入れ替え）。選んだ色はブラウザに保存され、火花・凡例・録画にも反映されます
 - **↓（ダウンロード）**：シミュレーションを動画で保存。Startと同時に自動で録画され、クリアの2秒後に録画が終わります。途中で押すとそこまでの映像を保存します。形式はMP4（非対応のブラウザではWebM）。次の回を始めると前の動画は置き換わるので、先に保存してください。
 - **0.5× / 1× / 2× / 4×**：再生速度の変更

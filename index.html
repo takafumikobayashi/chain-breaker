@@ -4,8 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#090b10" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="description" content="An automatic brick-breaking simulation. Watch the chain reaction unfold." />
     <title>CHAIN BREAKER — Automatic Destruction Simulator</title>
+
+    <!-- Open Graph / social cards. VITE_SITE_URL (see .env) makes the URLs absolute, which most crawlers require. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CHAIN BREAKER" />
+    <meta property="og:title" content="CHAIN BREAKER — Automatic Destruction Simulator" />
+    <meta property="og:description" content="One bounce becomes a thousand. An automatic brick-breaking simulation — watch the chain reaction unfold." />
+    <meta property="og:url" content="%VITE_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_SITE_URL%/og-image.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CHAIN BREAKER: glowing balls tearing through a field of red and blue blocks above an orange paddle." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CHAIN BREAKER — Automatic Destruction Simulator" />
+    <meta name="twitter:description" content="One bounce becomes a thousand. An automatic brick-breaking simulation — watch the chain reaction unfold." />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.jpg" />
+    <meta name="twitter:image:alt" content="CHAIN BREAKER: glowing balls tearing through a field of red and blue blocks above an orange paddle." />
   </head>
   <body>
     <div class="app-shell">
@@ -123,6 +143,18 @@
                 <button type="button" data-speed="1" aria-pressed="true">1×</button>
                 <button type="button" data-speed="2" aria-pressed="false">2×</button>
                 <button type="button" data-speed="4" aria-pressed="false">4×</button>
+              </div>
+              <div class="speed-heading"><span>SOUND <kbd>M</kbd></span><span id="sound-readout">60%</span></div>
+              <div class="sound-row">
+                <button id="sound-toggle" class="sound-toggle" type="button" aria-pressed="false" aria-label="Mute sound" title="Mute sound (M)">
+                  <svg class="icon-on" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 9v6h4l5 4V5L8 9H4z" /><path d="M16.5 8.5a5 5 0 0 1 0 7" /><path d="M19 6a8.5 8.5 0 0 1 0 12" />
+                  </svg>
+                  <svg class="icon-off" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 9v6h4l5 4V5L8 9H4z" /><path d="m17 9 5 6" /><path d="m22 9-5 6" />
+                  </svg>
+                </button>
+                <input id="sound-volume" class="sound-volume" type="range" min="0" max="100" step="1" value="60" aria-label="Volume" />
               </div>
             </section>
 
