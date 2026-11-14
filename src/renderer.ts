@@ -35,6 +35,8 @@ export class Renderer {
   private blockColors: Record<number, string> = { ...DEFAULT_BLOCK_COLORS };
   /** When true, a stats line is drawn into the canvas so recorded videos carry it. */
   showStatsLine = false;
+  /** Credit drawn under the field (and therefore into recordings); null shows the plain caption. */
+  creditLine: string | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const context = canvas.getContext("2d", { alpha: false });
@@ -225,9 +227,15 @@ export class Renderer {
     }
 
     context.textAlign = "center";
-    context.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
-    context.fillStyle = "rgba(210, 215, 231, 0.48)";
-    context.fillText("AUTOMATIC SIMULATION", WORLD.width / 2, 671);
+    if (this.creditLine) {
+      context.font = "600 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+      context.fillStyle = "rgba(236, 240, 250, 0.72)";
+      context.fillText(this.creditLine, WORLD.width / 2, 671);
+    } else {
+      context.font = "10px ui-monospace, SFMono-Regular, Menlo, monospace";
+      context.fillStyle = "rgba(210, 215, 231, 0.48)";
+      context.fillText("AUTOMATIC SIMULATION", WORLD.width / 2, 671);
+    }
     if (this.showStatsLine) this.drawStatsLine(view);
 
     if (view.status === "ready") {

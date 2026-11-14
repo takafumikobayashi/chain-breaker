@@ -1,4 +1,5 @@
 import { DEFAULT_VOLUME, SoundEngine } from "./audio";
+import { resolveOwnerMode } from "./owner";
 import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPalette } from "./palette";
 import { CanvasRecorder, downloadBlob } from "./recorder";
 import { Renderer } from "./renderer";
@@ -37,6 +38,7 @@ const fieldCorner = byId<HTMLElement>("field-corner");
 const soundToggle = byId<HTMLButtonElement>("sound-toggle");
 const soundVolume = byId<HTMLInputElement>("sound-volume");
 const soundReadout = byId<HTMLElement>("sound-readout");
+const downloadDialog = byId<HTMLDialogElement>("download-dialog");
 const paletteName = byId<HTMLElement>("palette-name");
 const palettePresets = byId<HTMLElement>("palette-presets");
 const colorAInput = byId<HTMLInputElement>("color-a");
@@ -269,8 +271,29 @@ playButton.addEventListener("click", () => {
 patternButton.addEventListener("click", newPattern);
 classicButton.addEventListener("click", () => usePattern(CLASSIC_PATTERN));
 
+/* ---------- Owner mode, credit and follow prompt ---------- */
+
+const X_HANDLE = "@kobatch_tk";
+const CREDIT_LINE = "CHAIN BREAKER · " + X_HANDLE;
+/** Visitors get the credit line and the follow prompt; the owner (see owner.ts) gets neither. */
+let ownerMode = false;
+renderer.creditLine = CREDIT_LINE;
+void resolveOwnerMode().then((isOwner) => {
+  ownerMode = isOwner;
+  renderer.creditLine = isOwner ? null : CREDIT_LINE;
+});
+
 downloadButton.addEventListener("click", () => {
-  void downloadVideo();
+  if (ownerMode || typeof downloadDialog.showModal !== "function") {
+    void downloadVideo();
+    return;
+  }
+  downloadDialog.returnValue = "";
+  downloadDialog.showModal();
+});
+
+downloadDialog.addEventListener("close", () => {
+  if (downloadDialog.returnValue === "save") void downloadVideo();
 });
 
 resetButton.addEventListener("click", () => {
@@ -286,6 +309,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-speed]").forEach((button) =>
 });
 
 window.addEventListener("keydown", (event) => {
+  if (downloadDialog.open) return;
   const target = event.target;
   if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
   if (event.code === "Space") {
