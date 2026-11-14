@@ -10,13 +10,13 @@
     <meta name="description" content="An automatic brick-breaking simulation. Watch the chain reaction unfold." />
     <title>CHAIN BREAKER — Automatic Destruction Simulator</title>
 
-    <!-- Open Graph / social cards. VITE_SITE_URL (see .env) makes the URLs absolute, which most crawlers require. -->
+    <!-- Open Graph / social cards. URLs must be absolute (crawlers ignore relative ones); scripts/check-build.mjs enforces it. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CHAIN BREAKER" />
     <meta property="og:title" content="CHAIN BREAKER — Automatic Destruction Simulator" />
     <meta property="og:description" content="One bounce becomes a thousand. An automatic brick-breaking simulation — watch the chain reaction unfold." />
-    <meta property="og:url" content="%VITE_SITE_URL%/" />
-    <meta property="og:image" content="%VITE_SITE_URL%/og-image.jpg" />
+    <meta property="og:url" content="https://chain-breaker.tariki-code.tokyo/" />
+    <meta property="og:image" content="https://chain-breaker.tariki-code.tokyo/og-image.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -24,7 +24,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="CHAIN BREAKER — Automatic Destruction Simulator" />
     <meta name="twitter:description" content="One bounce becomes a thousand. An automatic brick-breaking simulation — watch the chain reaction unfold." />
-    <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.jpg" />
+    <meta name="twitter:image" content="https://chain-breaker.tariki-code.tokyo/og-image.jpg" />
     <meta name="twitter:image:alt" content="CHAIN BREAKER: glowing balls tearing through a field of red and blue blocks above an orange paddle." />
   </head>
   <body>

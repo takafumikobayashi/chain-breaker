@@ -12,13 +12,9 @@ Open the local address printed by Vite. To create a production build:
     npm run build
     npm run preview
 
-### Social preview (OGP)
+### Deploy
 
-`public/og-image.jpg` (1200 × 630) is used for Open Graph and Twitter cards. Most social networks need absolute URLs, so set the deployed origin before building:
-
-    VITE_SITE_URL=https://your-domain.example npm run build
-
-or put `VITE_SITE_URL=...` in `.env.production`. Left empty, the card URLs stay relative.
+Published at https://chain-breaker.tariki-code.tokyo/ on Cloudflare Pages (build command `npm run build`, output `dist`). See [docs/deploy.md](docs/deploy.md) for the full steps, including the custom domain (DNS is on Netlify). `npm run build` also checks that the Open Graph / Twitter card URLs in `index.html` are absolute.
 
 ## Controls
 
