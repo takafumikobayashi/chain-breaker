@@ -61,7 +61,10 @@ let finalizing = false;
 let recordingClosed = false;
 /** Bumped on reset so a stop that finishes afterwards does not keep footage from the discarded run. */
 let recordingGeneration = 0;
-let lastVideo: { blob: Blob; extension: string } | null = null;
+/** Pattern on screen when the current recording started; the finished video keeps it. */
+let recordingPatternId = simulation.getPattern().id;
+/** Finished video plus the pattern it actually shows (the field may have been switched since). */
+let lastVideo: { blob: Blob; extension: string; patternId: number } | null = null;
 renderer.showStatsLine = recordingSupported;
 let lastFrame = 0;
 let accumulator = 0;
@@ -152,7 +155,7 @@ async function finalizeRecording(): Promise<void> {
   refreshRecordUI();
   const blob = await recorder.stop();
   finalizing = false;
-  if (generation === recordingGeneration && blob.size > 0) lastVideo = { blob, extension };
+  if (generation === recordingGeneration && blob.size > 0) lastVideo = { blob, extension, patternId: recordingPatternId };
   refreshRecordUI();
 }
 
@@ -217,7 +220,7 @@ async function downloadVideo(): Promise<void> {
   if (recorder.state !== "idle") await finalizeRecording();
   if (!lastVideo) return;
   downloadBlob(lastVideo.blob, `chain-breaker-${timestampForFilename()}.${lastVideo.extension}`);
-  trackEvent("video_download", { pattern_id: simulation.getPattern().id, file_type: lastVideo.extension });
+  trackEvent("video_download", { pattern_id: lastVideo.patternId, file_type: lastVideo.extension });
 }
 
 /** Starts, pauses and resumes recording with playback, and closes it shortly after the field is cleared. */
@@ -227,6 +230,7 @@ function syncRecorder(): void {
   if (status === "running") {
     if (recorder.state === "idle" && !recordingClosed) {
       lastVideo = null;
+      recordingPatternId = simulation.getPattern().id;
       recorder.start(sound.recordingStream());
     } else {
       recorder.resume();
