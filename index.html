@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#090b10" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Paint the page dark before the stylesheet arrives (the dev server injects CSS from JS, so it would flash white). -->
+    <style>html { background: #090b10; }</style>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -210,6 +213,9 @@
 
       <dialog id="download-dialog" class="download-dialog" aria-labelledby="download-dialog-title">
         <form method="dialog" class="download-dialog-body">
+          <button value="cancel" class="dialog-close" type="submit" aria-label="Close" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
+          </button>
           <p class="eyebrow">SAVE YOUR RUN</p>
           <h2 id="download-dialog-title">Enjoying CHAIN BREAKER?</h2>
           <p class="download-dialog-copy">If you liked it, a follow on X would mean a lot. New patterns and updates are posted there.</p>

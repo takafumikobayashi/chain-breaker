@@ -344,6 +344,11 @@ downloadButton.addEventListener("click", () => {
   downloadDialog.showModal();
 });
 
+// As with the share dialog, clicking the backdrop closes it (without saving).
+downloadDialog.addEventListener("click", (event) => {
+  if (event.target === downloadDialog) downloadDialog.close("cancel");
+});
+
 downloadDialog.addEventListener("close", () => {
   if (downloadDialog.returnValue === "save") void downloadVideo();
 });
