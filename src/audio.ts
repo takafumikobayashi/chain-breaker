@@ -36,10 +36,27 @@ export class SoundEngine {
   private melodyStep = 0;
   private breakRate = 0;
 
-  /** Creates or resumes the audio context. Must be called from a user gesture (click / key). */
+  /**
+   * Creates or resumes the audio context. Must be called from a user gesture (click / tap / key).
+   * Also recovers iOS's "interrupted" state (after a call, Siri or switching apps).
+   */
   unlock(): void {
     if (!this.context) this.build();
-    if (this.context?.state === "suspended") void this.context.resume();
+    const context = this.context;
+    if (!context || context.state === "running") return;
+    void context.resume().catch(() => undefined);
+    // Older iOS Safari only unlocks Web Audio once a sound has been started inside the gesture.
+    {
+      const silence = context.createBufferSource();
+      silence.buffer = context.createBuffer(1, 1, context.sampleRate);
+      silence.connect(context.destination);
+      silence.start();
+    }
+  }
+
+  /** True once the browser is actually letting the context play. */
+  get running(): boolean {
+    return this.context?.state === "running";
   }
 
   get ready(): boolean {

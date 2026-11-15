@@ -72,6 +72,13 @@ h1 span { color: #8ca4ff; }
 .card-heading .eyebrow, .section-title .eyebrow { margin-bottom: 5px; }
 h2 { margin: 0; font: 500 16px/1.2 var(--display); letter-spacing: -.02em; }
 .field-size { display: inline-flex; align-items: center; gap: 7px; color: #9aa1b0; font: 9px var(--mono); letter-spacing: .08em; }
+.card-heading-side { display: flex; align-items: center; gap: 12px; }
+.share-button { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; color: #c9d0dd; background: #171b24; cursor: pointer; font: 600 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; transition: border-color .16s ease, color .16s ease; }
+.share-button:hover { border-color: rgba(171,184,211,.35); color: #fff; }
+.share-link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.share-url { min-width: 0; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; color: #dfe4ef; background: #0b0e14; font: 10px var(--mono); }
+.share-copy { padding: 0 12px; white-space: nowrap; }
+.download-dialog-actions .share-close:only-child, .download-dialog-actions [hidden] + .share-close { grid-column: 1 / -1; }
 .field-size-dot { width: 6px; height: 6px; border-radius: 2px; background: #f45d6b; box-shadow: 8px 0 #577ff5; margin-right: 8px; }
 
 .stage-wrap {
@@ -138,6 +145,10 @@ kbd { padding: 3px 5px; border: 1px solid rgba(171,184,211,.18); border-radius: 
 .download-dialog::backdrop { background: rgba(5, 7, 11, .62); backdrop-filter: blur(2px); }
 .download-dialog-body { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 22px; }
 .download-dialog-body .eyebrow { margin: 0; }
+.download-dialog-body { position: relative; }
+.dialog-close { position: absolute; top: 12px; right: 12px; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 8px; color: #8d97ad; background: transparent; cursor: pointer; transition: border-color .16s ease, color .16s ease, background .16s ease; }
+.dialog-close:hover, .dialog-close:focus-visible { border-color: var(--line); color: #fff; background: #171b24; }
+.dialog-close ~ h2 { padding-right: 28px; }
 .download-dialog-body h2 { margin: 0; font-size: 18px; }
 .download-dialog-copy { margin: 0; color: #a3aaba; font-size: 12px; line-height: 1.6; }
 .follow-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; border-radius: 999px; color: #0b0d12; background: #f2f4f8; font-size: 13px; font-weight: 700; text-decoration: none; transition: filter .16s ease; }
@@ -188,8 +199,9 @@ kbd { padding: 3px 5px; border: 1px solid rgba(171,184,211,.18); border-radius: 
 .paddle-icon::before { content: ""; display: block; width: 12px; height: 3px; border-radius: 3px; background: #ff9257; box-shadow: 0 0 7px rgba(255,146,87,.35); }
 .split-icon { font-size: 14px; }
 
-.footer { display: flex; justify-content: space-between; gap: 20px; padding: 20px 2px 26px; color: #656d7b; font: 8px var(--mono); letter-spacing: .09em; }
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; padding: 20px 2px 26px; color: #656d7b; font: 8px var(--mono); letter-spacing: .09em; }
 .footer-divider { padding: 0 5px; color: #424956; }
+.copyright { flex-basis: 100%; text-align: center; color: #4f5663; font: inherit; letter-spacing: .06em; }
 
 @media (min-width: 1200px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 318px; gap: 18px; }
@@ -235,9 +247,16 @@ kbd { padding: 3px 5px; border: 1px solid rgba(171,184,211,.18); border-radius: 
   .footer { padding-top: 16px; font-size: 7px; }
 }
 
+/* Phones: Playback, Palette and Phase each get the full width instead of sharing a row. */
+@media (max-width: 560px) {
+  .control-column { grid-template-columns: 1fr; }
+  .control-card, .phase-card { min-height: 0; }
+}
+
 @media (max-width: 390px) {
   .app-shell { padding: 0 10px; }
   .field-size { font-size: 7px; }
+  .card-heading-side { gap: 8px; }
   .field-legend { gap: 8px; font-size: 6px; }
   .stat-card { padding-inline: 6px; }
   .stat-unit { font-size: 5px; }

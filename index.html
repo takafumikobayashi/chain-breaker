@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#090b10" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Paint the page dark before the stylesheet arrives (the dev server injects CSS from JS, so it would flash white). -->
+    <style>html { background: #090b10; }</style>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -60,7 +63,15 @@
                 <p class="eyebrow">LIVE SIMULATION</p>
                 <h2 id="field-title">Destruction field</h2>
               </div>
-              <span class="field-size"><span class="field-size-dot"></span> 80 × 80 GRID</span>
+              <div class="card-heading-side">
+                <span class="field-size"><span class="field-size-dot"></span> 80 × 80 GRID</span>
+                <button id="share-button" class="share-button" type="button" aria-label="Share this pattern" title="Share this pattern">
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4" /><path d="m15.4 6.5-6.8 4" />
+                  </svg>
+                  <span>Share</span>
+                </button>
+              </div>
             </div>
 
             <div class="stage-wrap">
@@ -202,6 +213,9 @@
 
       <dialog id="download-dialog" class="download-dialog" aria-labelledby="download-dialog-title">
         <form method="dialog" class="download-dialog-body">
+          <button value="cancel" class="dialog-close" type="submit" aria-label="Close" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
+          </button>
           <p class="eyebrow">SAVE YOUR RUN</p>
           <h2 id="download-dialog-title">Enjoying CHAIN BREAKER?</h2>
           <p class="download-dialog-copy">If you liked it, a follow on X would mean a lot. New patterns and updates are posted there.</p>
@@ -216,9 +230,33 @@
         </form>
       </dialog>
 
+      <dialog id="share-dialog" class="download-dialog" aria-labelledby="share-dialog-title">
+        <form method="dialog" class="download-dialog-body">
+          <button value="close" class="dialog-close" type="submit" aria-label="Close" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12" /><path d="M18 6 6 18" /></svg>
+          </button>
+          <p class="eyebrow">SHARE THIS PATTERN</p>
+          <h2 id="share-dialog-title">#0000 · Classic</h2>
+          <p class="download-dialog-copy">Anyone who opens this link gets the same field and watches the very same run unfold.</p>
+          <div class="share-link-row">
+            <input id="share-url" class="share-url" type="text" readonly aria-label="Link to this pattern" />
+            <button id="share-copy" class="dialog-secondary share-copy" type="button">Copy link</button>
+          </div>
+          <a id="share-x" class="follow-button" href="https://x.com/intent/post" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M17.75 3h3.07l-6.7 7.66L22 21h-6.17l-4.83-6.32L5.47 21H2.4l7.17-8.2L2 3h6.32l4.37 5.78L17.75 3Zm-1.08 16.17h1.7L7.4 4.74H5.58l11.09 14.43Z" /></svg>
+            Post on X
+          </a>
+          <div class="download-dialog-actions">
+            <button id="share-native" class="dialog-secondary" type="button" hidden>More options…</button>
+            <button value="close" class="dialog-primary share-close" type="submit">Done</button>
+          </div>
+        </form>
+      </dialog>
+
       <footer class="footer">
         <span>CHAIN BREAKER <span class="footer-divider">/</span> PROTOTYPE 0.1</span>
         <span>BUILT FOR THE MOMENT IT ALL FALLS</span>
+        <small class="copyright" id="copyright">&copy; 2026 tariki-code</small>
       </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
