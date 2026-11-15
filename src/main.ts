@@ -4,6 +4,7 @@ import { resolveOwnerMode } from "./owner";
 import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPalette } from "./palette";
 import { CanvasRecorder, downloadBlob } from "./recorder";
 import { Renderer } from "./renderer";
+import { patternFromUrl, patternLabel, patternUrl, shareText, syncAddressBar, xIntentUrl } from "./share";
 import { CLASSIC_PATTERN, MAX_PATTERN, Simulation } from "./simulation";
 import "./style.css";
 
@@ -45,6 +46,13 @@ const palettePresets = byId<HTMLElement>("palette-presets");
 const colorAInput = byId<HTMLInputElement>("color-a");
 const colorBInput = byId<HTMLInputElement>("color-b");
 const paletteSwap = byId<HTMLButtonElement>("palette-swap");
+const shareButton = byId<HTMLButtonElement>("share-button");
+const shareDialog = byId<HTMLDialogElement>("share-dialog");
+const shareTitle = byId<HTMLElement>("share-dialog-title");
+const shareUrlInput = byId<HTMLInputElement>("share-url");
+const shareCopy = byId<HTMLButtonElement>("share-copy");
+const shareX = byId<HTMLAnchorElement>("share-x");
+const shareNative = byId<HTMLButtonElement>("share-native");
 const phaseSegments = [...document.querySelectorAll<HTMLElement>(".phase-segment")];
 
 const simulation = new Simulation();
@@ -65,6 +73,8 @@ let recordingGeneration = 0;
 let recordingPatternId = simulation.getPattern().id;
 /** Finished video plus the pattern it actually shows (the field may have been switched since). */
 let lastVideo: { blob: Blob; extension: string; patternId: number } | null = null;
+/** Most balls on the field at once in the current run, quoted in the share text after a clear. */
+let peakBalls = 0;
 renderer.showStatsLine = recordingSupported;
 let lastFrame = 0;
 let accumulator = 0;
@@ -169,6 +179,7 @@ function discardRecording(): void {
 
 function resetSimulation(): void {
   discardRecording();
+  peakBalls = 0;
   simulation.reset();
 }
 
@@ -198,7 +209,9 @@ function refreshPatternUI(): void {
 /** Switches the field to another layout; the current recording belongs to the old one and is dropped. */
 function usePattern(pattern: number): void {
   discardRecording();
+  peakBalls = 0;
   simulation.setPattern(pattern);
+  syncAddressBar(simulation.getPattern().id);
   try {
     localStorage.setItem(PATTERN_STORAGE_KEY, String(simulation.getPattern().id));
   } catch {
@@ -272,6 +285,7 @@ function animate(timestamp: number): void {
       if (simulation.getView().status === "finished") break;
     }
     if (steps === 32) accumulator = 0;
+    peakBalls = Math.max(peakBalls, simulation.getView().balls.length);
   } else {
     accumulator = 0;
   }
@@ -334,6 +348,80 @@ downloadDialog.addEventListener("close", () => {
   if (downloadDialog.returnValue === "save") void downloadVideo();
 });
 
+/* ---------- Share ---------- */
+
+/** What to share: the pattern on screen, with the result once this run has cleared it. */
+function currentShare(): { url: string; text: string; pattern: number } {
+  const view = simulation.getView();
+  const pattern = simulation.getPattern().id;
+  const cleared = view.status === "finished" ? { seconds: view.elapsed, peakBalls } : null;
+  return { url: patternUrl(pattern), text: shareText({ pattern, cleared }), pattern };
+}
+
+function trackShare(method: string, pattern: number): void {
+  trackEvent("share", { method, content_type: "pattern", item_id: patternLabel(pattern), pattern_id: pattern });
+}
+
+/** Opens the OS share sheet; resolves false when it is unavailable or fails (a user cancel counts as handled). */
+async function shareNatively(share: ReturnType<typeof currentShare>): Promise<boolean> {
+  const data = { title: "CHAIN BREAKER " + patternLabel(share.pattern), text: share.text, url: share.url };
+  if (typeof navigator.share !== "function" || (navigator.canShare && !navigator.canShare(data))) return false;
+  try {
+    await navigator.share(data);
+    trackShare("native", share.pattern);
+    return true;
+  } catch (error) {
+    return error instanceof DOMException && error.name === "AbortError";
+  }
+}
+
+function openShareDialog(share: ReturnType<typeof currentShare>): void {
+  const pattern = simulation.getPattern();
+  shareTitle.textContent = patternLabel(pattern.id) + " · " + pattern.name;
+  shareUrlInput.value = share.url;
+  // "via" appends " via @kobatch_tk" to the post, for the owner too.
+  shareX.href = xIntentUrl(share.text, share.url, X_HANDLE.slice(1));
+  shareCopy.textContent = "Copy link";
+  shareNative.hidden = typeof navigator.share !== "function";
+  if (typeof shareDialog.showModal === "function") shareDialog.showModal();
+  else window.prompt("Link to this pattern", share.url);
+}
+
+// Phones and tablets go straight to the OS share sheet (LINE, X, Messages…); other devices get the dialog.
+const prefersShareSheet = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+
+shareButton.addEventListener("click", async () => {
+  const share = currentShare();
+  if (prefersShareSheet && (await shareNatively(share))) return;
+  openShareDialog(share);
+});
+
+shareCopy.addEventListener("click", async () => {
+  const share = currentShare();
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(shareUrlInput.value);
+    copied = true;
+  } catch {
+    // Older browsers or no clipboard permission: select the link so it can be copied by hand.
+    shareUrlInput.focus();
+    shareUrlInput.select();
+    copied = document.execCommand?.("copy") ?? false;
+  }
+  shareCopy.textContent = copied ? "Copied ✓" : "Press ⌘C / Ctrl+C";
+  if (copied) trackShare("copy_link", share.pattern);
+});
+
+shareUrlInput.addEventListener("focus", () => shareUrlInput.select());
+// Clicking the dimmed backdrop (outside the panel) closes the dialog as well as × and Done.
+shareDialog.addEventListener("click", (event) => {
+  if (event.target === shareDialog) shareDialog.close();
+});
+shareX.addEventListener("click", () => trackShare("x", simulation.getPattern().id));
+shareNative.addEventListener("click", async () => {
+  if (await shareNatively(currentShare())) shareDialog.close();
+});
+
 resetButton.addEventListener("click", () => {
   resetSimulation();
   refreshUI();
@@ -347,7 +435,7 @@ document.querySelectorAll<HTMLButtonElement>("[data-speed]").forEach((button) =>
 });
 
 window.addEventListener("keydown", (event) => {
-  if (downloadDialog.open) return;
+  if (downloadDialog.open || shareDialog.open) return;
   const target = event.target;
   if (target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
   if (event.code === "Space") {
@@ -411,8 +499,14 @@ colorBInput.addEventListener("input", () => applyPalette({ a: palette.a, b: colo
 paletteSwap.addEventListener("click", () => applyPalette({ a: palette.b, b: palette.a }, true));
 applyPalette(palette, false);
 
-simulation.setPattern(loadPattern());
-refreshPatternUI();
+// A shared link (?p=1234) wins over the pattern this browser last used, and becomes the remembered one.
+const linkedPattern = patternFromUrl(MAX_PATTERN);
+if (linkedPattern !== null) usePattern(linkedPattern);
+else {
+  simulation.setPattern(loadPattern());
+  syncAddressBar(simulation.getPattern().id);
+  refreshPatternUI();
+}
 
 /* ---------- Sound ---------- */
 
@@ -454,10 +548,15 @@ function toggleMute(): void {
   applySoundSettings(true);
 }
 
-// Browsers only allow audio after a user gesture; the first click or key press switches it on.
-const unlockAudio = () => sound.unlock();
-window.addEventListener("pointerdown", unlockAudio, { capture: true });
-window.addEventListener("keydown", unlockAudio, { capture: true });
+// Browsers only allow audio after a user gesture. On touch screens a finger going down does not
+// count yet (only lifting it does), so listen for the release events too; every gesture retries
+// until the context is really running, which also recovers from iOS interruptions.
+const unlockAudio = () => {
+  if (!sound.running) sound.unlock();
+};
+for (const type of ["pointerdown", "pointerup", "touchend", "click", "keydown"]) {
+  window.addEventListener(type, unlockAudio, { capture: true, passive: true });
+}
 
 soundToggle.addEventListener("click", toggleMute);
 soundVolume.addEventListener("input", () => {

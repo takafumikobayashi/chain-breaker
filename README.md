@@ -27,6 +27,7 @@ Google Analytics 4 is set in `src/analytics.ts` (`GA_MEASUREMENT_ID`; empty disa
 - **Credit & follow prompt** — for visitors, the canvas (and so every recorded video) shows "CHAIN BREAKER · @kobatch_tk" under the field, and ↓ first opens a small dialog asking for a follow on X (optional; "Save video" always works). The owner can hide both: open the site once with `#owner=<passphrase>` to remember that browser, or `#owner=off` to forget it. Only the passphrase's SHA-256 hash is in `src/owner.ts`; it is a convenience switch, not access control.
 - **Palette** — recolour the two block arrays: pick a preset, choose each colour freely, or swap them with ⇄. The choice is remembered in this browser and also applies to sparks, the legend and recorded videos.
 - **↓ (Download)** — save the run as a video. Every run is recorded automatically from Start (paused with the simulation) and the recording closes 2 seconds after the field is cleared. Clicking ↓ mid-run saves the footage so far. The file is MP4 where the browser supports it, otherwise WebM. Recording captures the field canvas, with a time / balls / cleared line drawn along its bottom edge. Starting a new run replaces the previous video, so save it first.
+- **Share**：今のパターンへのリンクを共有。リンク（`?p=1234`）を開いた人は、同じ配置・同じ展開を再生できます。スマホでは端末の共有画面（LINE、X、メッセージなど）が開き、PCでは「Post on X」と「Copy link」を選べます（Xへの投稿には「via @kobatch_tk」が付きます）。クリア後に押すと、タイムと最大ボール数が投稿文に入ります。アドレスバーのURLも表示中のパターンに合わせて変わります
 - **0.5× / 1× / 2× / 4×** — change simulation speed.
 - **Space** — start, pause, or resume.
 - **R** — reset.
