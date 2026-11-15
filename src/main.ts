@@ -293,6 +293,18 @@ playButton.addEventListener("click", () => {
 patternButton.addEventListener("click", newPattern);
 classicButton.addEventListener("click", () => usePattern(CLASSIC_PATTERN));
 
+/* ---------- Copyright ---------- */
+
+/** First year of publication; later years extend it to a range such as "2026–2027". */
+const COPYRIGHT_START_YEAR = 2026;
+const COPYRIGHT_HOLDER = "tariki-code";
+{
+  const currentYear = new Date().getFullYear();
+  const years = currentYear > COPYRIGHT_START_YEAR ? `${COPYRIGHT_START_YEAR}–${currentYear}` : `${COPYRIGHT_START_YEAR}`;
+  const copyright = document.querySelector<HTMLElement>("#copyright");
+  if (copyright) copyright.textContent = `© ${years} ${COPYRIGHT_HOLDER}`;
+}
+
 /* ---------- Owner mode, credit and follow prompt ---------- */
 
 const X_HANDLE = "@kobatch_tk";

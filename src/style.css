@@ -188,8 +188,9 @@ kbd { padding: 3px 5px; border: 1px solid rgba(171,184,211,.18); border-radius: 
 .paddle-icon::before { content: ""; display: block; width: 12px; height: 3px; border-radius: 3px; background: #ff9257; box-shadow: 0 0 7px rgba(255,146,87,.35); }
 .split-icon { font-size: 14px; }
 
-.footer { display: flex; justify-content: space-between; gap: 20px; padding: 20px 2px 26px; color: #656d7b; font: 8px var(--mono); letter-spacing: .09em; }
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; padding: 20px 2px 26px; color: #656d7b; font: 8px var(--mono); letter-spacing: .09em; }
 .footer-divider { padding: 0 5px; color: #424956; }
+.copyright { flex-basis: 100%; text-align: center; color: #4f5663; font: inherit; letter-spacing: .06em; }
 
 @media (min-width: 1200px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 318px; gap: 18px; }
@@ -233,6 +234,12 @@ kbd { padding: 3px 5px; border: 1px solid rgba(171,184,211,.18); border-radius: 
   .keyboard-hint { display: none; }
   .mechanics-card { grid-column: 1 / -1; }
   .footer { padding-top: 16px; font-size: 7px; }
+}
+
+/* Phones: Playback, Palette and Phase each get the full width instead of sharing a row. */
+@media (max-width: 560px) {
+  .control-column { grid-template-columns: 1fr; }
+  .control-card, .phase-card { min-height: 0; }
 }
 
 @media (max-width: 390px) {
