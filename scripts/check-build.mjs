@@ -14,6 +14,10 @@ for (const [attribute, key] of checks) {
   if (!match) problems.push(`${key}: missing`);
   else if (!/^https:\/\/[^/]+\//.test(match[1])) problems.push(`${key}: "${match[1]}" is not an absolute https URL`);
 }
+// The canonical link must be absolute too, or it would point each host (pages.dev included) at itself.
+const canonical = html.match(/<link rel="canonical" href="([^"]*)"/);
+if (!canonical) problems.push("canonical: missing");
+else if (!/^https:\/\/[^/]+\//.test(canonical[1])) problems.push(`canonical: "${canonical[1]}" is not an absolute https URL`);
 if (problems.length > 0) {
   console.error("Social card check failed:\n  " + problems.join("\n  "));
   process.exit(1);
