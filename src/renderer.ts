@@ -10,6 +10,7 @@ import {
   type Simulation,
   type SimulationView,
 } from "./simulation";
+import { SPRITE_SIZE, spriteCanvas, type ItemTheme } from "./itemThemes";
 
 const DEFAULT_BLOCK_COLORS: Record<number, string> = {
   [RED]: "#ef4859",
@@ -22,6 +23,8 @@ const CONCRETE_EDGE = "#d4d8df";
 const CONCRETE_SHADE = "#737985";
 const FIELD_BACKGROUND = "#0b0d12";
 const ITEM_LABELS: Record<Item["kind"], string> = { plus: "+3", times: "×3", bomb: "BOMB" };
+/** Item icons are 12×12 pixel art drawn at this many world px per pixel. */
+const ITEM_PIXEL = 2;
 /** Ball sprites include a baked glow; this is the sprite's half size in world px. */
 const BALL_SPRITE_HALF = 9;
 
@@ -33,6 +36,8 @@ export class Renderer {
   private latestBricks: SimulationView["bricks"] = new Uint8Array(WORLD.columns * WORLD.rows);
   private ballSprites = new Map<string, HTMLCanvasElement>();
   private blockColors: Record<number, string> = { ...DEFAULT_BLOCK_COLORS };
+  /** Pre-drawn icons for the current item theme, or null for the plain labelled pills. */
+  private itemSprites: Record<Item["kind"], HTMLCanvasElement> | null = null;
   /** When true, a stats line is drawn into the canvas so recorded videos carry it. */
   showStatsLine = false;
   /** Credit drawn under the field (and therefore into recordings); null shows the plain caption. */
@@ -294,8 +299,20 @@ export class Renderer {
     }
   }
 
-  /** Capsules are drawn as glowing pills with their effect written on them. */
+  /** Switches capsules between the labelled pills (Normal) and a theme's pixel-art icons. */
+  setItemTheme(theme: ItemTheme): void {
+    const sprites = theme.sprites;
+    this.itemSprites = sprites
+      ? { plus: spriteCanvas(sprites.plus), times: spriteCanvas(sprites.times), bomb: spriteCanvas(sprites.bomb) }
+      : null;
+  }
+
+  /** Capsules are drawn as glowing pills with their effect written on them, or as themed icons. */
   private drawItem(item: Item): void {
+    if (this.itemSprites) {
+      this.drawIconItem(item, this.itemSprites[item.kind]);
+      return;
+    }
     const context = this.context;
     const color = ITEM_COLORS[item.kind];
     const width = item.kind === "bomb" ? 44 : 32;
@@ -319,6 +336,52 @@ export class Renderer {
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(ITEM_LABELS[item.kind], item.x, item.y + 0.5);
+    context.textBaseline = "alphabetic";
+  }
+
+  /**
+   * A themed capsule: the icon on a glowing disc in the capsule's colour, with a small tag
+   * underneath that still says what it does (+3, ×3, BOMB).
+   */
+  private drawIconItem(item: Item, sprite: HTMLCanvasElement): void {
+    const context = this.context;
+    const color = ITEM_COLORS[item.kind];
+    const pulse = 0.75 + Math.sin(item.age * 9) * 0.25;
+    const size = SPRITE_SIZE * ITEM_PIXEL;
+    // A slow sway reads as "falling" and keeps the icon lively.
+    const sway = Math.sin(item.age * 4) * 0.12;
+
+    // Dark disc with a ring in the capsule's colour: icons of any colour stand out, and the ring still tells kinds apart.
+    context.save();
+    context.shadowColor = color;
+    context.shadowBlur = 16 * pulse;
+    context.fillStyle = "#11141b";
+    context.strokeStyle = color;
+    context.lineWidth = 2.5;
+    context.beginPath();
+    context.arc(item.x, item.y, size / 2 + 3, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+
+    context.save();
+    context.translate(item.x, item.y);
+    context.rotate(sway);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(sprite, -size / 2, -size / 2, size, size);
+    context.restore();
+
+    const label = ITEM_LABELS[item.kind];
+    context.font = "700 8px ui-monospace, SFMono-Regular, Menlo, monospace";
+    const tagWidth = context.measureText(label).width + 8;
+    const tagTop = item.y + size / 2 - 1;
+    context.fillStyle = "#11141b";
+    roundedRect(context, item.x - tagWidth / 2, tagTop, tagWidth, 11, 5.5);
+    context.fill();
+    context.fillStyle = color;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(label, item.x, tagTop + 6);
     context.textBaseline = "alphabetic";
   }
 
