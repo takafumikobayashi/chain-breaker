@@ -5,7 +5,7 @@ import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPa
 import { CanvasRecorder, downloadBlob } from "./recorder";
 import { Renderer } from "./renderer";
 import { patternFromUrl, patternLabel, patternUrl, shareText, syncAddressBar, xIntentUrl } from "./share";
-import { CLASSIC_PATTERN, MAX_PATTERN, Simulation } from "./simulation";
+import { CLASSIC_PATTERN, FIRST_VARIED_PATTERN, MAX_PATTERN, Simulation } from "./simulation";
 import "./style.css";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -224,7 +224,8 @@ function usePattern(pattern: number): void {
 function newPattern(): void {
   const current = simulation.getPattern().id;
   let next = current;
-  while (next === current) next = 1 + Math.floor(Math.random() * MAX_PATTERN);
+  // New patterns come from the varied range; older numbers stay reachable through shared links.
+  while (next === current) next = FIRST_VARIED_PATTERN + Math.floor(Math.random() * (MAX_PATTERN - FIRST_VARIED_PATTERN + 1));
   usePattern(next);
   trackEvent("new_pattern", { pattern_id: next });
 }

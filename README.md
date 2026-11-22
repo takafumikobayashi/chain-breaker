@@ -22,7 +22,7 @@ Google Analytics 4 is set in `src/analytics.ts` (`GA_MEASUREMENT_ID`; empty disa
 
 - **Start / Pause** — release the first ball or pause the simulation.
 - **Reset** — return to the same initial layout and random seed.
-- **New pattern / N** — generate a new layout. Each pattern has a number (#0001–#9999); the same number always produces the same field and the same run, so a favourite can be replayed or recorded again. **Classic** returns to the original layout (#0000). The current pattern is remembered in this browser.
+- **New pattern / N** — generate a new layout. Each pattern has a number (#10000–#99999); the same number always produces the same field and the same run, so a favourite can be replayed or recorded again. **Classic** returns to the original layout (#0000). The current pattern is remembered in this browser.
 - **Sound / M** — soft synthesised sound (no audio files): pentatonic mallet notes for breaks that walk up and down the scale, a warm pad that swells as destruction gets dense, gentle cues for the paddle, capsules and blasts, and a chime when the field is cleared. Mute with the speaker button or **M**; volume is remembered. Sound starts after the first click or key press (a browser rule) and is included in recorded videos.
 - **Credit & follow prompt** — for visitors, the canvas (and so every recorded video) shows "CHAIN BREAKER · @kobatch_tk" under the field, and ↓ first opens a small dialog asking for a follow on X (optional; "Save video" always works). The owner can hide both: open the site once with `#owner=<passphrase>` to remember that browser, or `#owner=off` to forget it. Only the passphrase's SHA-256 hash is in `src/owner.ts`; it is a convenience switch, not access control.
 - **Palette** — recolour the two block arrays: pick a preset, choose each colour freely, or swap them with ⇄. The choice is remembered in this browser and also applies to sparks, the legend and recorded videos.
@@ -36,7 +36,16 @@ Google Analytics 4 is set in `src/analytics.ts` (`GA_MEASUREMENT_ID`; empty disa
 
 - The 80 × 80 block field is stored in a compact typed array and drawn to an offscreen canvas.
 - Layout: a concrete frame seals the field. Its only opening is a zigzag entry channel that runs from the bottom centre deep into the field; the channel walls crack open at regular intervals and its far end is open, so every block is reachable.
-- Generated patterns pick one of six colour splits (diagonal, wave, rings, stripes, checker, spiral), a random entrance and zigzag channel route, and up to five extra concrete walls. Every layout is checked with a ball-sized (2×2-cell) flood fill from the channel mouth and regenerated if any block would be unreachable.
+- Generated patterns pick one of six colour splits (diagonal, wave, rings, stripes, checker, spiral) and one of six corridor layouts, shown in the pattern name:
+  - **Zigzag** — the original zigzag channel, plus up to five small concrete walls.
+  - **Branch** — a straight stem with one to three side arms, each ending in a vertical tail (an "H" shape and its relatives).
+  - **Loop** — a corridor running round just inside the frame, with stepped passages reaching in from its sides.
+  - **Nest** — a stem rising through two or three nested rectangular corridors.
+  - **Rooms** — a T- or L-shaped corridor among hollow concrete rooms that are entered through narrow doorways.
+  - **Comb** — a horizontal trunk with teeth branching up (and sometimes down).
+- Corridor width also varies per pattern. Where corridors meet or cross they open into each other.
+- Patterns #0001–#9999 come from the earlier zigzag-only generator. They are no longer picked by **New pattern** but still open from shared links unchanged.
+- Every layout is checked with a ball-sized (2×2-cell) flood fill from the channel mouth and regenerated if any block would be unreachable.
 - Gold **capsule blocks** release a falling capsule when broken (ordinary blocks occasionally do too). Capsules pass through everything and trigger when the paddle catches them:
   - **+3** launches three balls from the paddle toward the entrance.
   - **×3** splits every ball in play into three.
@@ -64,7 +73,7 @@ TypeScript、Vite、Canvas 2Dで作った自動進行型のブロック破壊シ
 
 - **Start / Pause**：シミュレーションの開始・一時停止
 - **Reset**：初期状態へ戻す
-- **New pattern / N**：新しいブロック配置を自動生成。パターンには番号（#0001〜#9999）が付き、同じ番号なら毎回同じ配置・同じ展開になります。**Classic**で元の配置（#0000）に戻ります
+- **New pattern / N**：新しいブロック配置を自動生成。パターンには番号（#10000〜#99999）が付き、同じ番号なら毎回同じ配置・同じ展開になります。**Classic**で元の配置（#0000）に戻ります
 - **Sound / M**：音声ファイルを使わず合成したやわらかな効果音。ブロックの破壊はペンタトニック音階のマリンバ風の音、破壊が激しくなると温かい和音が広がります。スピーカーボタンか **M** でミュート、音量は保存されます。録画にも音が入ります
 - **Palette**：2つのブロック群の色を変更。プリセットから選ぶか、それぞれ自由に色を選べます（⇄で入れ替え）。選んだ色はブラウザに保存され、火花・凡例・録画にも反映されます
 - **↓（ダウンロード）**：シミュレーションを動画で保存。Startと同時に自動で録画され、クリアの2秒後に録画が終わります。途中で押すとそこまでの映像を保存します。形式はMP4（非対応のブラウザではWebM）。次の回を始めると前の動画は置き換わるので、先に保存してください。
@@ -72,7 +81,7 @@ TypeScript、Vite、Canvas 2Dで作った自動進行型のブロック破壊シ
 - **Space**：開始・一時停止・再開
 - **R**：リセット
 
-フィールドはコンクリートの外壁で囲まれ、入口は下中央から奥へ伸びるジグザグの通路だけです。金色のカプセルブロックを壊すとアイテムが落ち、パドルで取ると発動します（+3：ボール3個追加、×3：全ボールが3倍、BOMB：残りが最も密集した場所を広範囲に爆破）。オレンジの爆弾ブロックは壊すと爆発し、周りの爆弾ブロックに誘爆します。ボールが増えるのはアイテムを取ったときだけです（ボールが少ない間は上から+3の補給カプセルが降ってきます）。ボールは最大600個まで増え、数が多いほど速くなります（最大で約2.4倍）。
+フィールドはコンクリートの外壁で囲まれ、入口は下から奥へ伸びる通路だけです。自動生成のパターンでは、通路の形が6種類から選ばれます（Zigzag：ジグザグ、Branch：H字などの枝分かれ、Loop：外周を回る通路と階段状の横道、Nest：入れ子の四角い通路、Rooms：出入口のあるコンクリートの部屋、Comb：くし形）。#0001〜#9999 は以前のジグザグだけの配置で、共有リンクからは今も同じ配置で開けます。金色のカプセルブロックを壊すとアイテムが落ち、パドルで取ると発動します（+3：ボール3個追加、×3：全ボールが3倍、BOMB：残りが最も密集した場所を広範囲に爆破）。オレンジの爆弾ブロックは壊すと爆発し、周りの爆弾ブロックに誘爆します。ボールが増えるのはアイテムを取ったときだけです（ボールが少ない間は上から+3の補給カプセルが降ってきます）。ボールは最大600個まで増え、数が多いほど速くなります（最大で約2.4倍）。
 
 パドルは落下位置を予測して自動で追従します。ブロックの実際の破壊数に応じてボールが分裂し、4段階で破壊が加速します。
 
