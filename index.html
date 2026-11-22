@@ -12,6 +12,8 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="description" content="An automatic brick-breaking simulation. Watch the chain reaction unfold." />
     <title>CHAIN BREAKER — Automatic Destruction Simulator</title>
+    <!-- The same build is also served at chain-breaker.pages.dev; point search engines at the custom domain. Share links (?p=N) fold into it too. -->
+    <link rel="canonical" href="https://chain-breaker.tariki-code.tokyo/" />
 
     <!-- Open Graph / social cards. URLs must be absolute (crawlers ignore relative ones); scripts/check-build.mjs enforces it. -->
     <meta property="og:type" content="website" />
@@ -186,6 +188,14 @@
                 </label>
                 <button id="palette-swap" class="palette-swap" type="button" aria-label="Swap the two colors" title="Swap colors">⇄</button>
               </div>
+            </section>
+
+            <section class="item-card" aria-labelledby="item-theme-title">
+              <div class="section-title">
+                <div><p class="eyebrow">CAPSULE ICONS</p><h2 id="item-theme-title">Items</h2></div>
+                <span id="item-theme-name" class="palette-name">Normal</span>
+              </div>
+              <div id="item-themes" class="item-themes" role="group" aria-label="Capsule icon themes"></div>
             </section>
 
             <section class="phase-card">

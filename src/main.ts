@@ -1,11 +1,12 @@
 import { DEFAULT_VOLUME, SoundEngine } from "./audio";
 import { initAnalytics, trackEvent } from "./analytics";
 import { resolveOwnerMode } from "./owner";
+import { ITEM_THEMES, loadItemTheme, saveItemTheme, spriteCanvas, type ItemTheme } from "./itemThemes";
 import { PALETTE_PRESETS, loadPalette, matchingPreset, savePalette, type BlockPalette } from "./palette";
 import { CanvasRecorder, downloadBlob } from "./recorder";
 import { Renderer } from "./renderer";
 import { patternFromUrl, patternLabel, patternUrl, shareText, syncAddressBar, xIntentUrl } from "./share";
-import { CLASSIC_PATTERN, MAX_PATTERN, Simulation } from "./simulation";
+import { CLASSIC_PATTERN, FIRST_VARIED_PATTERN, MAX_PATTERN, Simulation } from "./simulation";
 import "./style.css";
 
 const byId = <T extends HTMLElement>(id: string): T => {
@@ -224,7 +225,8 @@ function usePattern(pattern: number): void {
 function newPattern(): void {
   const current = simulation.getPattern().id;
   let next = current;
-  while (next === current) next = 1 + Math.floor(Math.random() * MAX_PATTERN);
+  // New patterns come from the varied range; older numbers stay reachable through shared links.
+  while (next === current) next = FIRST_VARIED_PATTERN + Math.floor(Math.random() * (MAX_PATTERN - FIRST_VARIED_PATTERN + 1));
   usePattern(next);
   trackEvent("new_pattern", { pattern_id: next });
 }
@@ -503,6 +505,42 @@ colorAInput.addEventListener("input", () => applyPalette({ a: colorAInput.value,
 colorBInput.addEventListener("input", () => applyPalette({ a: palette.a, b: colorBInput.value }, true));
 paletteSwap.addEventListener("click", () => applyPalette({ a: palette.b, b: palette.a }, true));
 applyPalette(palette, false);
+
+/* ---------- Item themes ---------- */
+
+const itemThemeName = byId<HTMLElement>("item-theme-name");
+const itemThemeButtons = byId<HTMLElement>("item-themes");
+
+function applyItemTheme(theme: ItemTheme, persist: boolean): void {
+  renderer.setItemTheme(theme);
+  itemThemeName.textContent = theme.name;
+  itemThemeButtons.querySelectorAll<HTMLButtonElement>("[data-theme]").forEach((button) => {
+    button.setAttribute("aria-pressed", button.dataset.theme === theme.id ? "true" : "false");
+  });
+  if (persist) saveItemTheme(theme);
+}
+
+for (const theme of ITEM_THEMES) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "palette-preset item-theme";
+  button.dataset.theme = theme.id;
+  button.setAttribute("aria-pressed", "false");
+  const icons = document.createElement("span");
+  icons.className = "item-theme-icons";
+  icons.setAttribute("aria-hidden", "true");
+  if (theme.sprites) {
+    for (const kind of ["plus", "times", "bomb"] as const) icons.append(spriteCanvas(theme.sprites[kind]));
+  } else {
+    const labels = document.createElement("b");
+    labels.textContent = "+3 ×3";
+    icons.append(labels);
+  }
+  button.append(theme.name, icons);
+  button.addEventListener("click", () => applyItemTheme(theme, true));
+  itemThemeButtons.append(button);
+}
+applyItemTheme(loadItemTheme(), false);
 
 // A shared link (?p=1234) wins over the pattern this browser last used, and becomes the remembered one.
 const linkedPattern = patternFromUrl(MAX_PATTERN);

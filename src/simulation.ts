@@ -72,7 +72,12 @@ const BOMB_BLOCK_COUNT = 26;
 
 /** Pattern number of the hand-made original layout. Any other number is generated from that seed. */
 export const CLASSIC_PATTERN = 0;
-export const MAX_PATTERN = 9_999;
+/**
+ * Patterns from here on use the varied layouts (branches, loops, nested boxes, rooms, combs).
+ * Lower numbers keep the original zigzag generator unchanged, so links shared before still open the same field.
+ */
+export const FIRST_VARIED_PATTERN = 10_000;
+export const MAX_PATTERN = 99_999;
 /** Generation retries before falling back to the classic layout (never needed in practice). */
 const PATTERN_ATTEMPTS = 40;
 /** Pixel y of the channel mouth (the bottom edge of the field). */
@@ -109,6 +114,16 @@ const enum Hit {
 }
 
 type Point = { x: number; y: number };
+
+/**
+ * One concrete-walled corridor, along a polyline in cell units. A closed loop repeats its first point at the end.
+ * Open ends have no wall cap, so a branch starting inside another corridor joins it cleanly.
+ */
+type Channel = { path: Point[]; solidStart: number; openStart: boolean; openEnd: boolean };
+
+/** Ways the varied generator lays out corridors; the name shows in the pattern label. */
+type LayoutFamily = "Zigzag" | "Branch" | "Loop" | "Nest" | "Rooms" | "Comb";
+const LAYOUT_FAMILIES: LayoutFamily[] = ["Zigzag", "Branch", "Loop", "Nest", "Rooms", "Comb"];
 
 export type Ball = {
   x: number;
@@ -217,7 +232,9 @@ export class Simulation {
   private speed = 1;
   private pattern = CLASSIC_PATTERN;
   private patternName = "Classic";
-  private channelPath: Point[] = CLASSIC_CHANNEL_PATH;
+  /** The first channel starts at the field's only opening; the rest branch off it or cross it. */
+  private channels: Channel[] = [entryChannel(CLASSIC_CHANNEL_PATH)];
+  private channelHalfWidth = CHANNEL_HALF_WIDTH;
   /** Pixel x of the channel mouth: where the paddle tries to send balls. */
   private entranceX = WORLD.gridX + CLASSIC_CHANNEL_PATH[0].x * WORLD.cell;
   /** Spark colours per block kind; the two array colours follow the chosen palette. */
@@ -229,7 +246,7 @@ export class Simulation {
 
   reset(): void {
     if (this.pattern === CLASSIC_PATTERN || !this.generatePattern()) this.buildClassic();
-    this.entranceX = WORLD.gridX + this.channelPath[0].x * WORLD.cell;
+    this.entranceX = WORLD.gridX + this.channels[0].path[0].x * WORLD.cell;
     this.breakableTotal = this.bricks.reduce((count, kind) => count + (isBreakable(kind) ? 1 : 0), 0);
 
     this.balls = [];
@@ -837,7 +854,8 @@ export class Simulation {
   private buildClassic(): void {
     this.seed = 1_234_567;
     this.patternName = "Classic";
-    this.channelPath = CLASSIC_CHANNEL_PATH;
+    this.channels = [entryChannel(CLASSIC_CHANNEL_PATH)];
+    this.channelHalfWidth = CHANNEL_HALF_WIDTH;
     this.bricks = new Uint8Array(TOTAL_CELLS);
     for (let row = 0; row < WORLD.rows; row += 1) {
       const diagonal = 8 + row * 0.9;
@@ -855,18 +873,19 @@ export class Simulation {
    * Layouts where some block cannot be reached by a ball are rejected and regenerated.
    */
   private generatePattern(): boolean {
+    return this.pattern >= FIRST_VARIED_PATTERN ? this.generateVariedPattern() : this.generateZigzagPattern();
+  }
+
+  /** The original generator for patterns below FIRST_VARIED_PATTERN. Keep it unchanged so old links stay valid. */
+  private generateZigzagPattern(): boolean {
     for (let attempt = 0; attempt < PATTERN_ATTEMPTS; attempt += 1) {
       this.seed = hashSeed(this.pattern * 131 + attempt);
       const style = this.randomColorStyle();
-      this.bricks = new Uint8Array(TOTAL_CELLS);
-      for (let row = 0; row < WORLD.rows; row += 1) {
-        for (let column = 0; column < WORLD.columns; column += 1) {
-          this.bricks[row * WORLD.columns + column] = style.colorAt(column, row);
-        }
-      }
-      this.channelPath = this.randomChannelPath();
+      this.fillColors(style.colorAt);
+      this.channels = [entryChannel(this.randomChannelPath())];
+      this.channelHalfWidth = CHANNEL_HALF_WIDTH;
       this.carveFrameAndChannel();
-      const walls = this.placeObstacles();
+      const walls = this.placeObstacles(Math.floor(this.random() * 6));
       if (!this.everyBlockReachable()) continue;
 
       this.placeSpecialBlocks();
@@ -876,6 +895,225 @@ export class Simulation {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Builds a layout from one of the corridor families (see LAYOUT_FAMILIES), modelled on hand-drawn stages:
+   * an H-shaped branch, a loop just inside the frame with a stepped passage, nested boxes on a stem, and so on.
+   */
+  private generateVariedPattern(): boolean {
+    for (let attempt = 0; attempt < PATTERN_ATTEMPTS; attempt += 1) {
+      this.seed = hashSeed(this.pattern * 131 + attempt);
+      const family = LAYOUT_FAMILIES[Math.floor(this.random() * LAYOUT_FAMILIES.length)];
+      const style = this.randomColorStyle();
+      this.fillColors(style.colorAt);
+      // Narrower corridors read as thin concrete lines, closer to the hand-drawn look; wide ones fill faster.
+      this.channelHalfWidth = 1.6 + this.random() * 0.7;
+      this.channels = this.randomChannels(family);
+      this.carveFrameAndChannel();
+      if (family === "Rooms") this.placeRooms(3 + Math.floor(this.random() * 3));
+      const walls = this.placeObstacles(Math.floor(this.random() * (family === "Zigzag" ? 6 : 3)));
+      if (!this.everyBlockReachable()) continue;
+
+      this.placeSpecialBlocks();
+      this.patternName = family + " · " + style.name + (walls > 0 ? " + " + walls + (walls === 1 ? " wall" : " walls") : "");
+      this.seed = hashSeed(this.pattern ^ 0x5bd1e995);
+      return true;
+    }
+    return false;
+  }
+
+  private fillColors(colorAt: (column: number, row: number) => number): void {
+    this.bricks = new Uint8Array(TOTAL_CELLS);
+    for (let row = 0; row < WORLD.rows; row += 1) {
+      for (let column = 0; column < WORLD.columns; column += 1) {
+        this.bricks[row * WORLD.columns + column] = colorAt(column, row);
+      }
+    }
+  }
+
+  private randomChannels(family: LayoutFamily): Channel[] {
+    if (family === "Branch") return this.branchChannels();
+    if (family === "Loop") return this.loopChannels();
+    if (family === "Nest") return this.nestChannels();
+    if (family === "Comb") return this.combChannels();
+    if (family === "Rooms") return this.roomsChannels();
+    return [entryChannel(this.randomChannelPath())];
+  }
+
+  /**
+   * A straight stem up from the bottom with 1–3 side arms. Each arm runs sideways and ends in a vertical tail
+   * (one arm with a long tail gives the "H" shape).
+   */
+  private branchChannels(): Channel[] {
+    const stemX = 16 + Math.floor(this.random() * 49);
+    const stemTop = 6 + Math.floor(this.random() * 20);
+    const channels = [entryChannel([{ x: stemX, y: 81 }, { x: stemX, y: stemTop }])];
+    const arms = 1 + Math.floor(this.random() * 3);
+    // Arms and tails keep apart from each other, so corridors never merge into one thick block.
+    const verticals = [stemX];
+    const armRows: number[] = [];
+    let side = stemX < 40 ? 1 : -1;
+    for (let arm = 0; arm < arms; arm += 1) {
+      const armY = stemTop + 6 + this.random() * (56 - stemTop);
+      const reach = 16 + this.random() * 30;
+      const tailX = Math.max(7, Math.min(73, stemX + side * reach));
+      side *= -1;
+      if (verticals.some((x) => Math.abs(x - tailX) < 12) || armRows.some((y) => Math.abs(y - armY) < 10)) continue;
+      verticals.push(tailX);
+      armRows.push(armY);
+      channels.push(branch([{ x: stemX, y: armY }, { x: tailX, y: armY }], true));
+      const tailTop = Math.max(6, armY - 8 - this.random() * 26);
+      const tailBottom = Math.min(72, armY + 8 + this.random() * 30);
+      // Tails grow from their lower end, so their top end is open like a chimney.
+      channels.push({ path: [{ x: tailX, y: tailBottom }, { x: tailX, y: tailTop }], solidStart: 0, openStart: false, openEnd: this.random() < 0.6 });
+    }
+    return channels;
+  }
+
+  /** A corridor around the field just inside the frame, fed from below, with 1–2 stepped passages reaching in from its sides. */
+  private loopChannels(): Channel[] {
+    const inset = 4 + Math.floor(this.random() * 4) + this.channelHalfWidth;
+    const left = inset;
+    const right = WORLD.columns - inset;
+    const top = inset;
+    const bottom = WORLD.rows - 1 - inset;
+    const entryX = 14 + Math.floor(this.random() * 52);
+    const channels = [
+      entryChannel([{ x: entryX, y: 81 }, { x: entryX, y: bottom }]),
+      loop([{ x: left, y: top }, { x: right, y: top }, { x: right, y: bottom }, { x: left, y: bottom }]),
+    ];
+    const passages = 1 + Math.floor(this.random() * 2);
+    for (let n = 0; n < passages; n += 1) {
+      const fromLeft = n === 0 ? this.random() < 0.5 : channels[2].path[0].x !== left;
+      const direction = fromLeft ? 1 : -1;
+      let x = fromLeft ? left : right;
+      let y = top + 10 + this.random() * (bottom - top - 20);
+      const path: Point[] = [{ x, y }];
+      const reach = 30 + this.random() * 28;
+      const steps = 2 + Math.floor(this.random() * 3);
+      for (let step = 0; step < steps; step += 1) {
+        x += (direction * reach) / steps;
+        path.push({ x, y });
+        if (step < steps - 1) {
+          y = Math.max(top + 6, Math.min(bottom - 6, y + (this.random() < 0.5 ? -1 : 1) * (3 + this.random() * 4)));
+          path.push({ x, y });
+        }
+      }
+      channels.push(branch(path, false));
+    }
+    return channels;
+  }
+
+  /** A stem from the bottom running up through 2–3 nested rectangular corridors. */
+  private nestChannels(): Channel[] {
+    const wallOuter = this.channelHalfWidth + CHANNEL_WALL_THICKNESS;
+    // At least 3 cells of blocks between neighbouring rings, so a ball fits in there once a crack lets it in.
+    const step = wallOuter * 2 + 3 + this.random() * 1.5;
+    // The innermost box is either tight (its corridors merge into one dark core) or roomy enough to hold blocks.
+    const tight = this.random() < 0.5;
+    const innerHeight = tight ? this.channelHalfWidth + this.random() : wallOuter + 3 + this.random() * 2;
+    const innerWidth = innerHeight + 2 + this.random() * 7;
+    const margin = wallOuter + 3;
+    const maxOuterHeight = (WORLD.rows - 22) / 2 - margin;
+    let rings = 2 + Math.floor(this.random() * 2);
+    while (rings > 2 && innerHeight + (rings - 1) * step > maxOuterHeight) rings -= 1;
+    const outerWidth = innerWidth + (rings - 1) * step;
+    const outerHeight = innerHeight + (rings - 1) * step;
+    const centerX = margin + outerWidth + this.random() * (WORLD.columns - 2 * (margin + outerWidth));
+    const centerY = margin + outerHeight + this.random() * Math.max(0, WORLD.rows - 22 - 2 * (margin + outerHeight));
+    const stemTop = Math.max(5, centerY - outerHeight - this.random() * 10);
+    const channels = [entryChannel([{ x: centerX, y: 81 }, { x: centerX, y: stemTop }])];
+    for (let ring = 0; ring < rings; ring += 1) {
+      const halfWidth = innerWidth + ring * step;
+      const halfHeight = innerHeight + ring * step;
+      channels.push(loop([
+        { x: centerX - halfWidth, y: centerY - halfHeight },
+        { x: centerX + halfWidth, y: centerY - halfHeight },
+        { x: centerX + halfWidth, y: centerY + halfHeight },
+        { x: centerX - halfWidth, y: centerY + halfHeight },
+      ]));
+    }
+    return channels;
+  }
+
+  /** A plain T or L of corridors, leaving open ground for the walled rooms placed afterwards. */
+  private roomsChannels(): Channel[] {
+    const stemX = 20 + Math.floor(this.random() * 41);
+    const crossY = 34 + this.random() * 26;
+    const left = this.random() < 0.7 ? 6 + this.random() * 10 : stemX;
+    const right = left === stemX || this.random() < 0.7 ? WORLD.columns - 6 - this.random() * 10 : stemX;
+    return [
+      entryChannel([{ x: stemX, y: 81 }, { x: stemX, y: crossY }]),
+      { path: [{ x: left, y: crossY }, { x: right, y: crossY }], solidStart: 0, openStart: false, openEnd: false },
+    ];
+  }
+
+  /** A horizontal trunk fed from below, with 3–5 teeth branching up (and sometimes down) from it. */
+  private combChannels(): Channel[] {
+    const trunkY = 30 + this.random() * 34;
+    const start = 6 + this.random() * 10;
+    const end = WORLD.columns - 6 - this.random() * 10;
+    const teeth = 3 + Math.floor(this.random() * 3);
+    const entryX = start + 4 + this.random() * (end - start - 8);
+    const channels = [
+      entryChannel([{ x: entryX, y: 81 }, { x: entryX, y: trunkY }]),
+      branch([{ x: start, y: trunkY }, { x: end, y: trunkY }], false),
+    ];
+    channels[1].openStart = false;
+    for (let tooth = 0; tooth < teeth; tooth += 1) {
+      const x = start + ((tooth + 0.5) / teeth) * (end - start) + (this.random() - 0.5) * 4;
+      if (Math.abs(x - entryX) < 6) continue;
+      const down = trunkY < 52 && this.random() < 0.35;
+      const tip = down ? Math.min(72, trunkY + 12 + this.random() * 16) : Math.max(5, trunkY - 14 - this.random() * (trunkY - 18));
+      channels.push(branch([{ x, y: trunkY }, { x, y: tip }], this.random() < 0.5));
+    }
+    return channels;
+  }
+
+  /**
+   * Draws hollow concrete rooms (1-cell outline, still full of blocks) with one or two doorways each.
+   * Rooms avoid the corridors and each other.
+   */
+  private placeRooms(count: number): void {
+    const placed: { left: number; top: number; right: number; bottom: number }[] = [];
+    const keepAway = this.channelHalfWidth + CHANNEL_WALL_THICKNESS + 2;
+    for (let tries = 0; tries < 60 && placed.length < count; tries += 1) {
+      const width = 12 + Math.floor(this.random() * 15);
+      const height = 9 + Math.floor(this.random() * 10);
+      const left = 3 + Math.floor(this.random() * (WORLD.columns - 6 - width));
+      const top = 3 + Math.floor(this.random() * (WORLD.rows - 10 - height));
+      const room = { left, top, right: left + width, bottom: top + height };
+      if (placed.some((other) => room.left < other.right + 4 && other.left < room.right + 4 && room.top < other.bottom + 4 && other.top < room.bottom + 4)) continue;
+      let clear = true;
+      for (let row = top; row <= room.bottom && clear; row += 1) {
+        for (let column = left; column <= room.right && clear; column += 1) {
+          if (this.channelDistance(column + 0.5, row + 0.5) <= keepAway) clear = false;
+        }
+      }
+      if (!clear) continue;
+      placed.push(room);
+      // Doorways: 4 cells wide, on one or two random sides.
+      const doors = new Set<number>([Math.floor(this.random() * 4)]);
+      if (this.random() < 0.5) doors.add(Math.floor(this.random() * 4));
+      const doorAt = [left + 2 + Math.floor(this.random() * (width - 7)), top + 2 + Math.floor(this.random() * (height - 7))];
+      for (let column = left; column <= room.right; column += 1) {
+        for (let row = top; row <= room.bottom; row += 1) {
+          const side = row === top ? 0 : row === room.bottom ? 2 : column === left ? 3 : column === room.right ? 1 : -1;
+          if (side < 0) continue;
+          const along = side % 2 === 0 ? column - doorAt[0] : row - doorAt[1];
+          if (doors.has(side) && along >= 0 && along < 4) continue;
+          this.bricks[row * WORLD.columns + column] = CONCRETE;
+        }
+      }
+    }
+  }
+
+  /** Distance (cells) from a point to the nearest corridor centre line. */
+  private channelDistance(x: number, y: number): number {
+    let distance = Infinity;
+    for (const channel of this.channels) distance = Math.min(distance, closestOnPath(x, y, channel.path).distance);
+    return distance;
   }
 
   /** Picks one of several ways to split the field between the two block colours. */
@@ -956,16 +1194,15 @@ export class Simulation {
     return path;
   }
 
-  /** Adds 0–5 small concrete walls (bars, pillars, diagonal dashes) away from the channel. Returns how many. */
-  private placeObstacles(): number {
-    const count = Math.floor(this.random() * 6);
-    const keepAway = CHANNEL_HALF_WIDTH + CHANNEL_WALL_THICKNESS + 2.5;
+  /** Adds `count` small concrete walls (bars, pillars, diagonal dashes) away from the channels. Returns how many. */
+  private placeObstacles(count: number): number {
+    const keepAway = this.channelHalfWidth + CHANNEL_WALL_THICKNESS + 2.5;
     const setConcrete = (column: number, row: number) => {
       if (column < 2 || column > WORLD.columns - 3 || row < 2 || row > WORLD.rows - 3) return;
       const index = row * WORLD.columns + column;
       const kind = this.bricks[index];
       if (kind !== RED && kind !== BLUE) return;
-      if (closestOnPath(column + 0.5, row + 0.5, this.channelPath).distance <= keepAway) return;
+      if (this.channelDistance(column + 0.5, row + 0.5) <= keepAway) return;
       this.bricks[index] = CONCRETE;
     };
     for (let n = 0; n < count; n += 1) {
@@ -1042,8 +1279,9 @@ export class Simulation {
   }
 
   /**
-   * Seals the field with a concrete frame and carves the zigzag entry channel (its only opening).
-   * The channel walls have regular cracks and the channel's far end is open.
+   * Seals the field with a concrete frame and carves the channels; the entry channel is the frame's only opening.
+   * Channel walls have regular cracks. All walls go in before any corridor is hollowed out, so where corridors
+   * meet or cross, they open into each other instead of being blocked by the other's wall.
    */
   private carveFrameAndChannel(): void {
     const { columns, rows } = WORLD;
@@ -1056,18 +1294,27 @@ export class Simulation {
       this.bricks[row * columns + columns - 1] = CONCRETE;
     }
 
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        const { distance, along, length } = closestOnPath(column + 0.5, row + 0.5, this.channelPath);
-        const index = row * columns + column;
-        if (distance <= CHANNEL_HALF_WIDTH) {
-          this.bricks[index] = EMPTY;
-        } else if (distance <= CHANNEL_HALF_WIDTH + CHANNEL_WALL_THICKNESS && along < length - 1) {
-          const crack = along > CHANNEL_SOLID_START && along % CHANNEL_GAP_EVERY >= CHANNEL_GAP_EVERY - CHANNEL_GAP_LENGTH;
-          if (!crack) this.bricks[index] = CONCRETE;
+    const halfWidth = this.channelHalfWidth;
+    const corridor = new Uint8Array(TOTAL_CELLS);
+    for (const channel of this.channels) {
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const { distance, along, length } = closestOnPath(column + 0.5, row + 0.5, channel.path);
+          const index = row * columns + column;
+          if (distance <= halfWidth) {
+            corridor[index] = 1;
+          } else if (
+            distance <= halfWidth + CHANNEL_WALL_THICKNESS &&
+            !(channel.openEnd && along >= length - 1) &&
+            !(channel.openStart && along <= 1)
+          ) {
+            const crack = along > channel.solidStart && along % CHANNEL_GAP_EVERY >= CHANNEL_GAP_EVERY - CHANNEL_GAP_LENGTH;
+            if (!crack) this.bricks[index] = CONCRETE;
+          }
         }
       }
     }
+    for (let index = 0; index < TOTAL_CELLS; index += 1) if (corridor[index]) this.bricks[index] = EMPTY;
   }
 
   /** Scatters capsule blocks (half of them along the channel) and bomb blocks. */
@@ -1085,8 +1332,8 @@ export class Simulation {
       if (kind !== RED && kind !== BLUE) continue;
       const column = index % WORLD.columns;
       const row = Math.floor(index / WORLD.columns);
-      const { distance } = closestOnPath(column + 0.5, row + 0.5, this.channelPath);
-      const wallOuter = CHANNEL_HALF_WIDTH + CHANNEL_WALL_THICKNESS;
+      const distance = this.channelDistance(column + 0.5, row + 0.5);
+      const wallOuter = this.channelHalfWidth + CHANNEL_WALL_THICKNESS;
       if (distance > wallOuter && distance <= wallOuter + 2) candidates.push(index);
     }
     // Candidates are in row order; taking evenly spaced ones spreads capsules along the channel.
@@ -1112,6 +1359,21 @@ export class Simulation {
     this.seed = (Math.imul(this.seed, 1_664_525) + 1_013_904_223) >>> 0;
     return this.seed / 4_294_967_296;
   }
+}
+
+/** The channel that enters from below: solid for its first stretch, open at its far end. */
+function entryChannel(path: Point[]): Channel {
+  return { path, solidStart: CHANNEL_SOLID_START, openStart: false, openEnd: true };
+}
+
+/** A channel that starts inside another one (no wall cap there). */
+function branch(path: Point[], openEnd: boolean): Channel {
+  return { path, solidStart: 0, openStart: true, openEnd };
+}
+
+/** A closed rectangular (or any polygonal) corridor. */
+function loop(corners: Point[]): Channel {
+  return { path: [...corners, corners[0]], solidStart: 0, openStart: false, openEnd: false };
 }
 
 /** Spreads small integers into well-mixed 32-bit seeds (never 0). */
